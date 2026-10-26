@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200" viewBox="0 0 1600 1200" role="img" aria-label="Produtos de tecnologia em fundo escuro">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0c0d10"/>
+      <stop offset="1" stop-color="#08090b"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff875a"/>
+      <stop offset="1" stop-color="#ff633b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff633b" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ff633b" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1600" height="1200" fill="url(#bg)"/>
+  <circle cx="1180" cy="260" r="360" fill="url(#glow)"/>
+  <circle cx="320" cy="980" r="300" fill="url(#glow)" opacity="0.5"/>
+
+  <!-- Orbit headphones (upper-right region ~ 93% 17%) -->
+  <g transform="translate(1300 150)">
+    <path d="M -110 10 A 110 110 0 0 1 110 10" fill="none" stroke="url(#accent)" stroke-width="16" stroke-linecap="round"/>
+    <rect x="-150" y="0" width="56" height="130" rx="26" fill="#161616" stroke="url(#accent)" stroke-width="10"/>
+    <rect x="94" y="0" width="56" height="130" rx="26" fill="#161616" stroke="url(#accent)" stroke-width="10"/>
+  </g>
+
+  <!-- Pulse watch (center-lower ~ 59% 75%) -->
+  <g transform="translate(910 870)">
+    <rect x="-70" y="-70" width="140" height="140" rx="38" fill="#161616" stroke="url(#accent)" stroke-width="12"/>
+    <rect x="-40" y="-130" width="80" height="70" rx="20" fill="#17191d"/>
+    <rect x="-40" y="60" width="80" height="70" rx="20" fill="#17191d"/>
+    <circle cx="0" cy="0" r="40" fill="none" stroke="#ff9c7a" stroke-width="8"/>
+    <path d="M 0 -22 V 0 L 16 12" fill="none" stroke="#ff9c7a" stroke-width="8" stroke-linecap="round"/>
+  </g>
+
+  <!-- Wave speaker (far-right lower ~ 99% 83%) -->
+  <g transform="translate(1480 980)">
+    <rect x="-70" y="-110" width="140" height="220" rx="30" fill="#161616" stroke="url(#accent)" stroke-width="12"/>
+    <circle cx="0" cy="-40" r="34" fill="none" stroke="#ff875a" stroke-width="8"/>
+    <circle cx="0" cy="55" r="20" fill="none" stroke="#ff875a" stroke-width="8"/>
+  </g>
+
+  <!-- subtle device silhouettes on the left for the hero fade -->
+  <g opacity="0.14" fill="none" stroke="#ff875a" stroke-width="6">
+    <circle cx="420" cy="420" r="150"/>
+    <circle cx="420" cy="420" r="90"/>
+    <rect x="620" y="620" width="220" height="220" rx="48"/>
+  </g>
+</svg>
