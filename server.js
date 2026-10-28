@@ -1,4 +1,4 @@
-import { createApiRouter } from './src/server/index.ts'
+import { createApiRouter, handleServerError } from './src/server/index.ts'
 import express from 'express'
 import path from 'node:path'
 import { Readable } from 'node:stream'
@@ -6,7 +6,7 @@ import { pipeline } from 'node:stream/promises'
 import { pathToFileURL } from 'node:url'
 
 const app = express()
-app.use('/api', express.json(), createApiRouter())
+app.use('/api', createApiRouter())
 
 const clientDist = path.resolve(process.cwd(), 'dist/client')
 app.use(express.static(clientDist))
@@ -41,6 +41,7 @@ app.use(async (req, res) => {
     await pipeline(Readable.fromWeb(response.body), res)
   }
 })
+app.use(handleServerError)
 
 const PORT = process.env.PORT || 5000
 app.listen(PORT, () => {

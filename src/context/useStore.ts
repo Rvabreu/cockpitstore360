@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { OrderWithEvents, Product } from '../types/store'
 import {
   SEED_ORDER_ID,
@@ -17,25 +17,52 @@ export function useStore() {
   const [products, setProducts] = useState<Product[]>(() => INITIAL_PRODUCTS)
   const [order, setOrder] = useState<OrderWithEvents>(() => INITIAL_ORDER)
   const [isLoaded, setIsLoaded] = useState(false)
+  const mounted = useRef(false)
+  const lifecycle = useRef(0)
+  const readVersion = useRef(0)
+  const pendingAdvance = useRef<Promise<OrderWithEvents> | null>(null)
 
   const loadOrder = useCallback(async () => {
+    const generation = lifecycle.current
+    const version = ++readVersion.current
     const refreshed = await loadOrderApi(SEED_ORDER_ID)
-    setOrder(refreshed)
+    if (mounted.current && generation === lifecycle.current &&
+      version === readVersion.current && !pendingAdvance.current) setOrder(refreshed)
   }, [])
 
   useEffect(() => {
-    Promise.all([fetchProductsApi(), loadOrderApi(SEED_ORDER_ID)])
+    mounted.current = true
+    const generation = ++lifecycle.current
+    const version = ++readVersion.current
+    Promise.allSettled([fetchProductsApi(), loadOrderApi(SEED_ORDER_ID)])
       .then(([prods, ord]) => {
-        setProducts(prods)
-        setOrder(ord)
+        if (!mounted.current || generation !== lifecycle.current) return
+        if (prods.status === 'fulfilled') setProducts(prods.value)
+        if (ord.status === 'fulfilled' && version === readVersion.current && !pendingAdvance.current) {
+          setOrder(ord.value)
+        }
+        setIsLoaded(true)
       })
-      .finally(() => setIsLoaded(true))
+    return () => {
+      mounted.current = false
+      ++lifecycle.current
+      ++readVersion.current
+    }
   }, [])
 
-  const advanceOrder = useCallback(async (id: string): Promise<OrderWithEvents> => {
-    const updated = await advanceOrderApi(id)
-    setOrder(updated)
-    return updated
+  const advanceOrder = useCallback((id: string): Promise<OrderWithEvents> => {
+    if (pendingAdvance.current) return pendingAdvance.current
+    const generation = lifecycle.current
+    ++readVersion.current
+    const pending = advanceOrderApi(id).then((updated) => {
+      if (mounted.current && generation === lifecycle.current) setOrder(updated)
+      return updated
+    }).finally(() => {
+      ++readVersion.current
+      pendingAdvance.current = null
+    })
+    pendingAdvance.current = pending
+    return pending
   }, [])
 
   // Validation-only: returns { ok, message }, never swaps the displayed order.

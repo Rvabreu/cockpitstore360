@@ -5,7 +5,6 @@ import { createApiRouter } from './index.ts'
 export function storeApiPlugin(): Plugin {
   // Mount the same Express router in Vite's Connect stack as in production.
   const api = express()
-  api.use(express.json())
   api.use('/api', createApiRouter())
 
   return {

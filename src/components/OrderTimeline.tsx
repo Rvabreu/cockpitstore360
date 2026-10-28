@@ -8,6 +8,12 @@ const DOT_GLYPH: Record<OrderEventStatus, string> = {
   pending: '·',
 }
 
+const STATUS_LABEL: Record<OrderEventStatus, string> = {
+  done: 'Etapa concluída',
+  current: 'Etapa atual',
+  pending: 'Etapa pendente',
+}
+
 function dotClasses(status: OrderEventStatus): string {
   const base =
     'relative z-[1] flex-shrink-0 w-[26px] h-[26px] rounded-full grid place-items-center font-black text-[11px] border-2'
@@ -22,19 +28,20 @@ function dotClasses(status: OrderEventStatus): string {
 
 export default function OrderTimeline({ events }: { events: OrderEvent[] }) {
   return (
-    <div className="relative pl-[9px] mt-[17px]">
+    <ol aria-label="Etapas do pedido" className="relative pl-[9px] mt-[17px] list-none">
       {events.map((event, i) => (
-        <div key={event.stepIndex} className="flex gap-[18px] min-h-[75px] relative">
+        <li key={event.stepIndex} aria-current={event.status === 'current' ? 'step' : undefined} className="flex gap-[18px] min-h-[75px] relative">
           {i < events.length - 1 && (
-            <span className="absolute top-[28px] left-[12px] w-[2px] h-[47px] bg-[#3c4046]" />
+            <span aria-hidden="true" className="absolute top-[28px] left-[12px] w-[2px] h-[47px] bg-[#3c4046]" />
           )}
-          <span className={dotClasses(event.status)}>{DOT_GLYPH[event.status]}</span>
+          <span aria-hidden="true" className={dotClasses(event.status)}>{DOT_GLYPH[event.status]}</span>
           <div>
             <div className="text-[14px] font-semibold mt-[3px] mb-[5px]">{event.title}</div>
+            <span className="sr-only">{STATUS_LABEL[event.status]}</span>
             <div className="text-[11px] text-[#a0a4ad]">{event.displayDetail}</div>
           </div>
-        </div>
+        </li>
       ))}
-    </div>
+    </ol>
   )
 }

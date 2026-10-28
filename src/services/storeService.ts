@@ -104,6 +104,40 @@ export const INITIAL_ORDER: OrderWithEvents = buildOrderWithEvents({
 // In-memory cache for SSR / fallback.
 let inMemoryProducts: Product[] = [...INITIAL_PRODUCTS]
 let inMemoryOrder: OrderWithEvents = INITIAL_ORDER
+let orderRequestVersion = 0
+let productsRequestVersion = 0
+let productsStorageDirty = false
+let orderStorageDirty = false
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isProducts(value: unknown): value is Product[] {
+  return Array.isArray(value) && value.every((product) =>
+    isRecord(product) &&
+    ['id', 'name', 'description', 'category', 'image', 'createdAt'].every((key) => typeof product[key] === 'string') &&
+    typeof product.price === 'number' && Number.isFinite(product.price) && product.price >= 0,
+  )
+}
+
+function isOrder(value: unknown, expectedId: string): value is OrderWithEvents {
+  if (!isRecord(value) || value.id !== expectedId ||
+    !['productId', 'productName', 'variant', 'placedAt', 'statusLabel'].every((key) => typeof value[key] === 'string') ||
+    typeof value.quantity !== 'number' || !Number.isInteger(value.quantity) || value.quantity < 1 ||
+    typeof value.total !== 'number' || !Number.isFinite(value.total) || value.total < 0 ||
+    typeof value.currentStep !== 'number' || !Number.isInteger(value.currentStep) ||
+    !Array.isArray(value.events) || value.events.length === 0 ||
+    value.currentStep < 0 || value.currentStep >= value.events.length) return false
+
+  const currentStep = value.currentStep
+  return value.events.every((event, index) =>
+    isRecord(event) && event.stepIndex === index &&
+    typeof event.title === 'string' && typeof event.detail === 'string' &&
+    event.status === (index < currentStep ? 'done' : index === currentStep ? 'current' : 'pending') &&
+    event.displayDetail === (index <= currentStep ? event.detail : AWAITING_DETAIL),
+  ) && value.statusLabel === value.events[currentStep].title
+}
 
 function isBrowser(): boolean {
   return typeof window !== 'undefined'
@@ -112,16 +146,17 @@ function isBrowser(): boolean {
 /* ==================== LocalStorage Fallbacks ==================== */
 
 export function getStoredProducts(): Product[] {
-  if (!isBrowser() || typeof window.localStorage === 'undefined') {
-    return inMemoryProducts
-  }
+  if (productsStorageDirty) return inMemoryProducts
   try {
+    if (!isBrowser() || !window.localStorage) return inMemoryProducts
     const raw = window.localStorage.getItem(PRODUCTS_STORAGE_KEY)
     if (!raw) {
-      window.localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(INITIAL_PRODUCTS))
-      return INITIAL_PRODUCTS
+      window.localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(inMemoryProducts))
+      return inMemoryProducts
     }
-    return JSON.parse(raw) as Product[]
+    const products: unknown = JSON.parse(raw)
+    if (isProducts(products)) inMemoryProducts = products
+    return inMemoryProducts
   } catch (e) {
     console.error('Erro ao ler produtos do armazenamento local:', e)
     return inMemoryProducts
@@ -129,28 +164,32 @@ export function getStoredProducts(): Product[] {
 }
 
 export function saveProducts(products: Product[]): void {
+  if (!isProducts(products)) return
   inMemoryProducts = products
-  if (isBrowser() && typeof window.localStorage !== 'undefined') {
-    try {
+  productsStorageDirty = true
+  try {
+    if (isBrowser() && window.localStorage) {
       window.localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products))
+      productsStorageDirty = false
       window.dispatchEvent(new Event(DATA_CHANGE_EVENT))
-    } catch (e) {
-      console.error('Erro ao salvar produtos no armazenamento local:', e)
     }
+  } catch (e) {
+    console.error('Erro ao salvar produtos no armazenamento local:', e)
   }
 }
 
 export function getStoredOrder(): OrderWithEvents {
-  if (!isBrowser() || typeof window.localStorage === 'undefined') {
-    return inMemoryOrder
-  }
+  if (orderStorageDirty) return inMemoryOrder
   try {
+    if (!isBrowser() || !window.localStorage) return inMemoryOrder
     const raw = window.localStorage.getItem(ORDER_STORAGE_KEY)
     if (!raw) {
-      window.localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(INITIAL_ORDER))
-      return INITIAL_ORDER
+      window.localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(inMemoryOrder))
+      return inMemoryOrder
     }
-    return JSON.parse(raw) as OrderWithEvents
+    const order: unknown = JSON.parse(raw)
+    if (isOrder(order, SEED_ORDER_ID)) inMemoryOrder = order
+    return inMemoryOrder
   } catch (e) {
     console.error('Erro ao ler pedido do armazenamento local:', e)
     return inMemoryOrder
@@ -158,14 +197,17 @@ export function getStoredOrder(): OrderWithEvents {
 }
 
 export function saveOrder(order: OrderWithEvents): void {
+  if (!isOrder(order, SEED_ORDER_ID)) return
   inMemoryOrder = order
-  if (isBrowser() && typeof window.localStorage !== 'undefined') {
-    try {
+  orderStorageDirty = true
+  try {
+    if (isBrowser() && window.localStorage) {
       window.localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(order))
+      orderStorageDirty = false
       window.dispatchEvent(new Event(DATA_CHANGE_EVENT))
-    } catch (e) {
-      console.error('Erro ao salvar pedido no armazenamento local:', e)
     }
+  } catch (e) {
+    console.error('Erro ao salvar pedido no armazenamento local:', e)
   }
 }
 
@@ -184,40 +226,53 @@ export function normalizeOrderId(raw: string): string {
 /* ==================== Backend REST API Calls (SQLite Persisted) ==================== */
 
 export async function fetchProductsApi(): Promise<Product[]> {
+  const version = ++productsRequestVersion
   try {
     const res = await fetch('/api/products')
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`)
-    const data = (await res.json()) as Product[]
+    if (!res.ok) throw new Error(`Erro HTTP ${res.status}`)
+    const data: unknown = await res.json()
+    if (!isProducts(data)) throw new Error('Dados de produtos inválidos')
+    if (version !== productsRequestVersion) return getStoredProducts()
     saveProducts(data)
     return data
   } catch (e) {
-    console.warn('API /api/products unavailable, using fallback data:', e)
+    console.warn('API de produtos indisponível; usando dados locais:', e)
     return getStoredProducts()
   }
 }
 
 export async function loadOrderApi(id: string): Promise<OrderWithEvents> {
+  const normalized = normalizeOrderId(id)
+  const version = ++orderRequestVersion
   try {
-    const res = await fetch(`/api/orders/${encodeURIComponent(id)}`)
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`)
-    const data = (await res.json()) as OrderWithEvents
+    const res = await fetch(`/api/orders/${encodeURIComponent(normalized)}`)
+    if (!res.ok) throw new Error(`Erro HTTP ${res.status}`)
+    const data: unknown = await res.json()
+    if (!isOrder(data, normalized)) throw new Error('Dados do pedido inválidos')
+    if (version !== orderRequestVersion) return getStoredOrder()
     saveOrder(data)
     return data
   } catch (e) {
-    console.warn(`API /api/orders/${id} unavailable, using fallback data:`, e)
+    console.warn('API do pedido indisponível; usando dados locais:', e)
     return getStoredOrder()
   }
 }
 
 export async function advanceOrderApi(id: string): Promise<OrderWithEvents> {
+  const normalized = normalizeOrderId(id)
+  ++orderRequestVersion
   try {
-    const res = await fetch(`/api/orders/${encodeURIComponent(normalizeOrderId(id))}/advance`, { method: 'POST' })
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`)
-    const data = (await res.json()) as OrderWithEvents
+    const res = await fetch(`/api/orders/${encodeURIComponent(normalized)}/advance`, { method: 'POST' })
+    if (!res.ok) throw new Error(`Erro HTTP ${res.status}`)
+    const data: unknown = await res.json()
+    if (!isOrder(data, normalized)) throw new Error('Dados do pedido inválidos')
     saveOrder(data)
     return data
   } catch {
     throw new Error('Não foi possível atualizar o pedido. Tente novamente.')
+  } finally {
+    // Reads started during a mutation may also describe the previous step.
+    ++orderRequestVersion
   }
 }
 
@@ -230,13 +285,14 @@ export async function getOrder(id: string): Promise<{ ok: boolean; message: stri
   try {
     const res = await fetch(`/api/orders/${encodeURIComponent(normalized)}`)
     if (res.ok) {
-      const order = (await res.json()) as OrderWithEvents
+      const order: unknown = await res.json()
+      if (!isOrder(order, normalized)) throw new Error('Dados do pedido inválidos')
       return { ok: true, message: `Pedido ${order.id} encontrado. Status: ${order.statusLabel}. Os dados exibidos são fictícios.` }
     }
     if (res.status === 404) {
       return { ok: false, message: NOT_FOUND_MESSAGE }
     }
-    throw new Error(`HTTP error ${res.status}`)
+    throw new Error(`Erro HTTP ${res.status}`)
   } catch {
     return { ok: false, message: UNAVAILABLE_MESSAGE }
   }

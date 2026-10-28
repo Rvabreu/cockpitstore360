@@ -73,6 +73,7 @@ describe.each(['Vite plugin', 'production Express'] as const)('%s HTTP API', (mo
     fs.writeFileSync(path.join(tmpDir, 'dist/client/fixture.txt'), 'static fixture')
     fs.writeFileSync(path.join(tmpDir, 'dist/server/server.js'), `
       export default { async fetch(request) {
+        if (new URL(request.url).pathname === '/fail') throw new Error('secret SSR failure');
         const headers = new Headers({ 'content-type': 'text/html' });
         headers.append('set-cookie', 'first=1; Path=/');
         headers.append('set-cookie', 'second=2; Path=/');
@@ -89,7 +90,16 @@ describe.each(['Vite plugin', 'production Express'] as const)('%s HTTP API', (mo
       vite = await createServer({
         configFile: false,
         root: tmpDir,
-        plugins: [storeApiPlugin()],
+        plugins: [storeApiPlugin(), {
+          name: 'non-api-body-probe',
+          configureServer(server) {
+            server.middlewares.use('/submit', async (req, res) => {
+              let body = ''
+              for await (const chunk of req) body += chunk.toString()
+              res.end(body)
+            })
+          },
+        }],
         server: { host: '127.0.0.1', port: 0, watch: null },
         logLevel: 'silent',
       })
@@ -209,7 +219,86 @@ describe.each(['Vite plugin', 'production Express'] as const)('%s HTTP API', (mo
     }
   })
 
+  it('returns safe Portuguese JSON for malformed JSON without mutating the order', async () => {
+    for (const body of ['{"secret":', 'not-json', '123']) {
+      for (const url of ['/api/orders/2048/advance', '/api/reset-seed']) {
+        const response = await fetch(`${baseUrl}${url}`, {
+          method: 'POST', headers: { 'content-type': 'application/json' }, body,
+        })
+        expect(response.status).toBe(400)
+        expect(response.headers.get('content-type')).toContain('application/json')
+        expect(await response.json()).toEqual({ error: 'JSON inválido' })
+      }
+    }
+    expect((await getOrder()).currentStep).toBe(1)
+  })
+
+  it('returns safe Portuguese JSON for malformed URI parameters', async () => {
+    for (const method of ['GET', 'POST']) {
+      const suffix = method === 'POST' ? '/advance' : ''
+      const response = await fetch(`${baseUrl}/api/orders/%E0%A4%A${suffix}`, { method })
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({ error: 'Requisição inválida' })
+    }
+    expect((await getOrder()).currentStep).toBe(1)
+  })
+
+  it('enforces the same JSON size and charset limits with Portuguese errors', async () => {
+    for (const [body, contentType, status, error] of [
+      [JSON.stringify({ value: 'x'.repeat(102_400) }), 'application/json', 413, 'Corpo da requisição muito grande'],
+      ['{}', 'application/json; charset=iso-8859-1', 415, 'Formato da requisição não suportado'],
+    ] as const) {
+      const response = await fetch(`${baseUrl}/api/orders/2048/advance`, {
+        method: 'POST', headers: { 'content-type': contentType }, body,
+      })
+      expect(response.status).toBe(status)
+      expect(await response.json()).toEqual({ error })
+    }
+    expect((await getOrder()).currentStep).toBe(1)
+  })
+
+  it('never parses or consumes JSON bodies outside the API mount', async () => {
+    for (const body of ['{"example":true}', '{invalid']) {
+      const response = await fetch(`${baseUrl}/submit`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body,
+      })
+      expect(response.status).toBe(200)
+      const text = await response.text()
+      if (mode === 'Vite plugin') expect(text).toBe(body)
+      else expect(text).toContain(`SSR fixture /submit POST ${body}`)
+    }
+  })
+
+  it('does not disclose SQLite errors from any API handler', async () => {
+    const sqlite = new Database(path.join(tmpDir, 'data/store.db'))
+    try {
+      for (const [table, urls] of [
+        ['products', [['/api/products', 'GET'], ['/api/reset-seed', 'POST']]],
+        ['orders', [['/api/orders/2048', 'GET'], ['/api/orders/2048/advance', 'POST']]],
+      ] as const) {
+        sqlite.exec(`ALTER TABLE ${table} RENAME TO private_${table}`)
+        try {
+          for (const [url, method] of urls) {
+            const response = await fetch(`${baseUrl}${url}`, { method })
+            expect(response.status).toBe(500)
+            expect(await response.json()).toEqual({ error: 'Erro interno no servidor' })
+          }
+        } finally {
+          sqlite.exec(`ALTER TABLE private_${table} RENAME TO ${table}`)
+        }
+      }
+    } finally {
+      sqlite.close()
+    }
+    expect((await getOrder()).currentStep).toBe(1)
+  })
+
   if (mode === 'production Express') {
+    it('returns a safe Portuguese error when the SSR handler fails', async () => {
+      const response = await fetch(`${baseUrl}/fail`)
+      expect(response.status).toBe(500)
+      expect(await response.json()).toEqual({ error: 'Erro interno no servidor' })
+    })
     it('retains the persisted order after restarting the actual Node entrypoint', async () => {
       await fetch(`${baseUrl}/api/orders/CS-2048/advance`, { method: 'POST' })
       await stopProduction(child!)
