@@ -3,6 +3,10 @@ import path from 'node:path'
 import fs from 'node:fs'
 import type { OrderEvent, OrderWithEvents, Product } from '../types/store.ts'
 import { INITIAL_PRODUCTS, INITIAL_ORDER } from '../services/storeService.ts'
+import {
+  createToken, DUMMY_PASSWORD_HASH, hashPassword, hashToken, normalizeEmail,
+  SESSION_LIFETIME_MS, validCredentials, validToken, verifyPassword,
+} from './auth.ts'
 
 const AWAITING_DETAIL = 'Aguardando atualização'
 
@@ -15,12 +19,13 @@ const DB_PATH = path.join(DB_DIR, 'store.db')
 let dbInstance: InstanceType<typeof Database> | null = null
 
 export function getDatabase(): InstanceType<typeof Database> {
-  if (dbInstance) {
+  if (dbInstance?.open) {
     return dbInstance
   }
 
   const db = new Database(DB_PATH)
   db.pragma('journal_mode = WAL')
+  db.pragma('foreign_keys = ON')
 
   // Schema creation
   db.exec(`
@@ -53,7 +58,25 @@ export function getDatabase(): InstanceType<typeof Database> {
       detail TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL CHECK (role IN ('customer', 'admin')),
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      token_hash TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at INTEGER NOT NULL
+    );
   `)
+
+  // User migration/seed is independent of the product seed, including old DBs.
+  db.transaction(() => seedUsers(db))()
 
   // Check if seed needed
   const countRow = db.prepare('SELECT COUNT(*) as count FROM products').get() as { count: number }
@@ -63,6 +86,61 @@ export function getDatabase(): InstanceType<typeof Database> {
 
   dbInstance = db
   return dbInstance
+}
+
+export interface AuthUser {
+  id: string
+  name: string
+  email: string
+  role: 'customer' | 'admin'
+}
+
+export function getUserById(id: string): AuthUser | null {
+  return getDatabase().prepare('SELECT id, name, email, role FROM users WHERE id = ?')
+    .get(id) as AuthUser | undefined ?? null
+}
+
+export function authenticateUser(email: string, password: string): AuthUser | null {
+  if (!validCredentials(email, password)) return null
+  const row = getDatabase().prepare('SELECT id, password_hash FROM users WHERE email = ?')
+    .get(normalizeEmail(email)) as { id: string; password_hash: string } | undefined
+  const verified = verifyPassword(password, row?.password_hash ?? DUMMY_PASSWORD_HASH)
+  return row && verified ? getUserById(row.id) : null
+}
+
+export function createSession(userId: string): string {
+  const token = createToken()
+  const db = getDatabase()
+  db.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(Date.now())
+  db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)')
+    .run(hashToken(token), userId, Date.now() + SESSION_LIFETIME_MS)
+  return token
+}
+
+export function getUserBySession(token: string): AuthUser | null {
+  if (!validToken(token)) return null
+  const session = getDatabase().prepare('SELECT user_id FROM sessions WHERE token_hash = ? AND expires_at > ?')
+    .get(hashToken(token), Date.now()) as { user_id: string } | undefined
+  return session ? getUserById(session.user_id) : null
+}
+
+export function revokeSession(token: string): void {
+  if (validToken(token)) {
+    getDatabase().prepare('DELETE FROM sessions WHERE token_hash = ?').run(hashToken(token))
+  }
+}
+
+// Called inside a transaction by initialization and explicit seed/reset alike.
+function seedUsers(db: InstanceType<typeof Database>): void {
+  const users = db.prepare('SELECT COUNT(*) AS count FROM users').get() as { count: number }
+  if (users.count !== 0) return
+  const insert = db.prepare(`
+    INSERT INTO users (id, name, email, password_hash, role, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `)
+  const createdAt = new Date().toISOString()
+  insert.run('demo-customer', 'Cliente Demo', 'cliente@cockpitstore360.com.br', hashPassword('demo123'), 'customer', createdAt)
+  insert.run('demo-admin', 'Administrador Demo', 'admin@cockpitstore360.com.br', hashPassword('admin123'), 'admin', createdAt)
 }
 
 export function seedDatabase(db: InstanceType<typeof Database> = getDatabase()) {
@@ -82,6 +160,7 @@ export function seedDatabase(db: InstanceType<typeof Database> = getDatabase()) 
   `)
 
   const transaction = db.transaction(() => {
+    seedUsers(db)
     db.prepare('DELETE FROM order_events').run()
     db.prepare('DELETE FROM orders').run()
     db.prepare('DELETE FROM products').run()

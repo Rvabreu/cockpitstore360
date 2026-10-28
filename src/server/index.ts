@@ -1,7 +1,11 @@
 import express from 'express'
 import type { ErrorRequestHandler } from 'express'
 import path from 'node:path'
-import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } from './db.ts'
+import {
+  getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase,
+  authenticateUser, createSession, getUserBySession, revokeSession,
+} from './db.ts'
+import { validCredentials } from './auth.ts'
 
 const NOT_FOUND_MESSAGE = 'Pedido não encontrado'
 
@@ -33,6 +37,36 @@ function normalizeId(raw: string): string {
 export function createApiRouter() {
   const router = express.Router()
   router.use(express.json())
+
+  // Tokens are opaque credentials: never cache responses or include them in URLs.
+  router.use('/auth', (_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store')
+    next()
+  })
+
+  router.post('/auth/login', (req, res) => {
+    const email: unknown = req.body?.email
+    const password: unknown = req.body?.password
+    if (!validCredentials(email, password)) {
+      return res.status(400).json({ error: 'E-mail e senha são obrigatórios' })
+    }
+    const user = authenticateUser(email, password as string)
+    if (!user) return res.status(401).json({ error: 'E-mail ou senha inválidos' })
+    res.json({ success: true, user, token: createSession(user.id) })
+  })
+
+  router.get('/auth/me', (req, res) => {
+    const token = bearerToken(req.headers.authorization)
+    const user = token ? getUserBySession(token) : null
+    if (!user) return res.status(401).json({ error: 'Não autenticado' })
+    res.json({ user })
+  })
+
+  router.post('/auth/logout', (req, res) => {
+    const token = bearerToken(req.headers.authorization)
+    if (token) revokeSession(token)
+    res.json({ success: true })
+  })
 
   // GET /api/products
   router.get('/products', (_req, res) => {
@@ -73,6 +107,10 @@ export function createApiRouter() {
   router.use(handleServerError)
 
   return router
+}
+
+function bearerToken(authorization: string | undefined): string | null {
+  return authorization?.match(/^Bearer ([a-f0-9]{64})$/i)?.[1] ?? null
 }
 
 export function startStandaloneServer(port = 5000) {
