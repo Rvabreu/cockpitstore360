@@ -3,7 +3,7 @@ import type { ErrorRequestHandler, Request, Response } from 'express'
 import { timingSafeEqual } from 'node:crypto'
 import type { AuthConfig } from './config.ts'
 import { csrfTokenFor, type AuthStore } from './db.ts'
-import { AuthCapacityError, isValidPassword, normalizeEmail } from './password.ts'
+import { AuthCapacityError, isValidPassword, isValidRegistrationPassword, normalizeEmail } from './password.ts'
 import { buildDashboard } from '../dashboard.ts'
 import { selectDashboardData } from '../db.ts'
 import type { DashboardData } from '../../types/dashboard.ts'
@@ -50,6 +50,8 @@ export function createAuthRouter({ config, store, now = Date.now, loadDashboard 
   router.use((req, res, next) => {
     if (req.method !== 'POST') return next()
     if (req.headers.origin !== config.origin) return unauthorized(res)
+    if (/^\/register\/?$/i.test(req.path) && (req.headers.cookie || '').split(';')
+      .some((entry) => entry.trim().startsWith(`${config.sessionCookieName}=`))) return unauthorized(res)
     const cookie = cookieValue(req, config.csrfCookieName)
     const session = cookieValue(req, config.sessionCookieName)
     const header = req.get('X-CSRF-Token')
@@ -60,6 +62,20 @@ export function createAuthRouter({ config, store, now = Date.now, loadDashboard 
     next()
   })
   router.use(express.json({ limit: '4kb', strict: false }))
+
+  router.post('/register', async (req, res) => {
+    const body: unknown = req.body
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return res.status(400).json({ error: 'Dados de cadastro inválidos' })
+    const fields = body as Record<string, unknown>
+    const email = normalizeEmail(fields.email)
+    const password = fields.password
+    if (!email || !isValidRegistrationPassword(password)) return res.status(400).json({ error: 'Dados de cadastro inválidos' })
+    store.consumeAttempt(req.socket.remoteAddress || 'desconhecido', email)
+    const result = await store.registerUser({ email, password, csrfCookie: cookieValue(req, config.csrfCookieName)! })
+    if (result === 'unauthorized') return unauthorized(res)
+    if (result === 'conflict') return res.status(409).json({ error: 'Não foi possível cadastrar com os dados informados' })
+    res.status(201).json({ created: true })
+  })
 
   router.post('/login', async (req, res) => {
     const email = normalizeEmail(req.body?.email)
@@ -93,7 +109,7 @@ export function createAuthRouter({ config, store, now = Date.now, loadDashboard 
     }
     if (error?.status === 413) return res.status(413).json({ error: 'Corpo da requisição muito grande' })
     if (error?.status === 415) return res.status(415).json({ error: 'Formato da requisição não suportado' })
-    if (error?.status === 400) return res.status(400).json({ error: error?.type === 'entity.parse.failed' ? 'JSON inválido' : 'Dados de acesso inválidos' })
+    if (error?.status === 400) return res.status(400).json({ error: error?.type === 'entity.parse.failed' ? 'JSON inválido' : /^\/register\/?$/i.test(_req.path) ? 'Dados de cadastro inválidos' : 'Dados de acesso inválidos' })
     res.status(500).json({ error: 'Erro interno no servidor' })
   }
   router.use(onError)

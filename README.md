@@ -26,7 +26,8 @@ by the server. The responsive form supports password visibility, accessible
 validation, session restoration and logout. Credentials and session tokens are
 never stored in browser storage or included in URLs.
 
-There are no default users, passwords or public registration endpoints. Provision
+There are no default users or passwords. Users can create an account at
+`/cadastro` (linked from the anonymous login page), or you can provision
 a user locally with `npm run auth:provision -- usuario@example.com`, supplying
 the password through standard input or the `AUTH_PASSWORD` environment variable
 from your secret manager. Never pass a password as a command-line argument or
@@ -50,12 +51,30 @@ provisioning command; use the same path for both.
 
 Authentication identifies the signed-in account only. The storefront and shared
 order simulator remain publicly accessible; there is no per-user order ownership
-or authorization. Public signup, password recovery and MFA are not implemented.
+or authorization. Password recovery, email verification and MFA are not implemented.
+
+### User registration
+
+`/cadastro` accepts an email, password and local password confirmation. Registration
+requires 12–128 UTF-16 characters and at most 512 UTF-8 bytes; passwords are never
+trimmed. The confirmation is not sent to the server. Forms have no credential
+`name` attributes, so pre-hydration submissions cannot put credentials in URLs.
+
+A successful registration creates a salted password hash but no session and
+sends no cookies. Use the login link after creation. The server rechecks the
+anonymous CSRF bootstrap after hashing, then inserts atomically; duplicate emails
+never overwrite credentials. Login and registration share rate-limit budgets,
+and public registration is capped at 10,000 total users. A conflict uses a generic
+409 response, which still indirectly reveals whether an email already exists.
+Emails are not verified; do not treat registration as proof of mailbox ownership.
 
 ### Authentication API
 
 - `GET /api/auth/session` — account or `null`, plus a CSRF token.
 - `POST /api/auth/login` — JSON email/password, exact Origin and `X-CSRF-Token`.
+- `POST /api/auth/register` — anonymous JSON email/password with the same checks;
+  `201 {created:true}`, no automatic login; invalid fields return 400 and duplicate
+  email returns a generic 409. Existing session cookies are rejected.
 - `POST /api/auth/logout` — JSON object with the same origin/CSRF checks.
 
 All authentication responses use `Cache-Control: no-store`. Failed credentials
@@ -64,7 +83,7 @@ response includes `Retry-After`; clients do not automatically resend passwords.
 
 ## E-commerce dashboard
 
-Open `/dashboard` or select **Painel** in the header. Sign in with a provisioned
+Open `/dashboard` or select **Painel** in the header. Sign in with a registered or provisioned
 account to view a read-only overview of the shared demo dataset. It includes
 order count, registered order value, average order value, product count, status
 distribution, orders by date, an order table and the product catalog. The new
@@ -88,7 +107,7 @@ uses `Cache-Control: no-store`; foreign-origin requests are rejected. Client-sid
 route checks are not the authorization boundary: the API verifies the session
 before reading the demo tracking database.
 
-Any provisioned account sees the same demonstrative operational data. This is
+Any registered or provisioned account sees the same demonstrative operational data. This is
 not an administrator role system or authorization for private customer orders.
 
 ## API

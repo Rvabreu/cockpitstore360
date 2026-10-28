@@ -2,7 +2,7 @@ import Database from 'better-sqlite3'
 import { randomBytes, randomUUID, createHash } from 'node:crypto'
 import fs from 'node:fs'
 import pathModule from 'node:path'
-import { AuthCapacityError, hashPassword, isValidPassword, normalizeEmail, verifyPassword } from './password.ts'
+import { AuthCapacityError, hashPassword, isValidPassword, isValidRegistrationPassword, normalizeEmail, verifyPassword } from './password.ts'
 
 export const SESSION_TTL = 8 * 60 * 60 * 1000
 export const BOOTSTRAP_TTL = 60 * 60 * 1000
@@ -88,6 +88,30 @@ export function createAuthStore({ path = pathModule.resolve('data/auth.db'), now
       const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as UserRecord | undefined
       const valid = await verifyPassword(password, user || placeholder)
       return valid && user ? { id: user.id, email: user.email } : null
+    },
+    async registerUser({ email, password, csrfCookie, sessionToken }: {
+      email: string; password: string; csrfCookie: string; sessionToken?: string
+    }): Promise<'created' | 'conflict' | 'unauthorized'> {
+      const normalized = normalizeEmail(email)
+      if (!normalized || !isValidRegistrationPassword(password)) throw new Error('Dados de cadastro inválidos')
+      const cookieHash = digest(csrfCookie)
+      const anonymousBootstrap = () => {
+        const validBootstrap = db.prepare('SELECT cookie_hash FROM csrf_bootstraps WHERE cookie_hash=? AND expires_at>?').get(cookieHash, now())
+        const linkedSession = db.prepare('SELECT token_hash FROM sessions WHERE csrf_hash=? LIMIT 1').get(cookieHash)
+        return sessionToken === undefined && Boolean(validBootstrap) && !linkedSession
+      }
+      if (!anonymousBootstrap()) return 'unauthorized'
+      // KDF is bounded and asynchronous, never holding a SQLite transaction across await.
+      const hashed = await hashPassword(password)
+      return db.transaction(() => {
+        // Revalidate anonymity/TTL after KDF; login or logout during await must never create an account.
+        if (!anonymousBootstrap()) return 'unauthorized' as const
+        const row = db.prepare('SELECT count(*) AS count FROM users').get() as { count: number }
+        if (row.count >= CAPACITY) throw new AuthCapacityError()
+        const result = db.prepare('INSERT INTO users(id,email,salt,hash) VALUES(?,?,?,?) ON CONFLICT(email) DO NOTHING')
+          .run(randomUUID(), normalized, hashed.salt, hashed.hash)
+        return result.changes ? 'created' as const : 'conflict' as const
+      }).immediate()
     },
     consumeAttempt(ip: string, email: string) {
       db.transaction(() => {

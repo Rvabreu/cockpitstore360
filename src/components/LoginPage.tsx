@@ -197,6 +197,7 @@ export default function LoginPage() {
               </button>
             </form>
             )}
+            {!user && <a href="/cadastro" className={`mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-[#ffad8c] no-underline hover:text-white ${focus}`}>Criar conta</a>}
             <p role="status" className="mt-4 text-sm leading-6 text-[#ffd0b9]">{status}</p>
             {authError && <p role="alert" className="mt-3 text-sm leading-6 text-[#ffb392]">{authError}</p>}
             {!ready && authError && <button type="button" onClick={retryBootstrap} disabled={pending} className={`mt-4 min-h-11 text-sm font-semibold text-[#ffad8c] ${focus}`}>Tentar novamente</button>}

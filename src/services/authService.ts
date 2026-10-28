@@ -21,8 +21,10 @@ export class AuthError extends Error {
   recoveryFailed = false
   recoveredSession?: AuthSession
 
-  constructor(status: number) {
-    super(ERROR_MESSAGES[status] ?? GENERIC_ERROR)
+  constructor(status: number, context: 'login' | 'register' = 'login') {
+    super(context === 'register' && status === 400 ? 'Dados de cadastro inválidos'
+      : context === 'register' && status === 409 ? 'Não foi possível cadastrar com os dados informados'
+        : ERROR_MESSAGES[status] ?? GENERIC_ERROR)
     this.name = 'AuthError'
     this.status = status
   }
@@ -61,7 +63,8 @@ async function request(path: string, options: RequestInit): Promise<unknown> {
       credentials: 'same-origin',
       cache: 'no-store',
     })
-    if (!response.ok) throw new AuthError(response.status)
+    if (!response.ok) throw new AuthError(response.status, path === 'register' ? 'register' : 'login')
+    if (path === 'register' && response.status !== 201) throw new AuthError(0)
     return await response.json()
   } catch (error) {
     if (error instanceof AuthError) throw error
@@ -93,7 +96,7 @@ export function createAuthService() {
     }
   }
 
-  async function post(path: 'login' | 'logout', body: string): Promise<unknown> {
+  async function post(path: 'login' | 'logout' | 'register', body: string): Promise<unknown> {
     if (!csrfToken) throw new AuthError(0)
     // A bootstrap requested after this mutation must run after it, rather than
     // join an earlier GET whose response predates cookie rotation.
@@ -108,6 +111,8 @@ export function createAuthService() {
         if (path === 'login') {
           if (!isSession(value) || value.user === null) throw new AuthError(0)
           csrfToken = value.csrfToken
+        } else if (path === 'register') {
+          if (!isCreated(value)) throw new AuthError(0)
         } else {
           if (!value || typeof value !== 'object' || (value as Record<string, unknown>).user !== null) {
             throw new AuthError(0)
@@ -127,6 +132,11 @@ export function createAuthService() {
 
   return {
     bootstrap,
+    async register(email: string, password: string): Promise<{ created: true }> {
+      const value = await post('register', JSON.stringify({ email, password }))
+      if (!isCreated(value)) throw new AuthError(0)
+      return { created: true }
+    },
     async login(email: string, password: string): Promise<AuthSession> {
       const value = await post('login', JSON.stringify({ email, password }))
       if (!isSession(value) || value.user === null) throw new AuthError(0)
@@ -140,4 +150,9 @@ export function createAuthService() {
       return { user: null }
     },
   }
+}
+
+function isCreated(value: unknown): value is { created: true } {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).length === 1 && (value as Record<string, unknown>).created === true)
 }

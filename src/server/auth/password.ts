@@ -17,6 +17,10 @@ export function isValidPassword(value: unknown, minimum = 1): value is string {
   return typeof value === 'string' && value.length >= minimum && value.length <= 256 && Buffer.byteLength(value, 'utf8') <= 1024
 }
 
+export function isValidRegistrationPassword(value: unknown): value is string {
+  return typeof value === 'string' && value.length >= 12 && value.length <= 128 && Buffer.byteLength(value, 'utf8') <= 512
+}
+
 async function derive(password: string, salt: Buffer): Promise<Buffer> {
   if (activeKdfs >= 4) throw new AuthCapacityError()
   ++activeKdfs
