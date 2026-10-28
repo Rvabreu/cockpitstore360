@@ -107,6 +107,17 @@ export function createAuthStore({ path = pathModule.resolve('data/auth.db'), now
         })
       })()
     },
+    findUserSession(token?: string, cookie?: string): AuthUser | null {
+      if (!token || !cookie || !/^[A-Za-z0-9_-]{43}$/.test(token) || !/^[A-Za-z0-9_-]{43}$/.test(cookie)) return null
+      const timestamp = now()
+      const row = db.prepare(`
+        SELECT u.id, u.email FROM sessions s
+        JOIN csrf_bootstraps c ON c.cookie_hash = s.csrf_hash
+        JOIN users u ON u.id = s.user_id
+        WHERE s.token_hash = ? AND c.cookie_hash = ? AND s.expires_at > ? AND c.expires_at > ?
+      `).get(digest(token), digest(cookie), timestamp, timestamp) as AuthUser | undefined
+      return row || null
+    },
     getSession(token?: string, cookie?: string) {
       return db.transaction(() => {
         cleanup()

@@ -164,6 +164,7 @@ export default function LoginPage() {
             {user ? (
               <div className="mt-6 space-y-5">
                 <p className="break-all text-sm text-[#f7f7f8]">{user.email}</p>
+                <a href="/dashboard" className={`inline-flex min-h-11 items-center text-sm font-bold text-[#ffba9e] ${focus}`}>Abrir painel</a>
                 <button type="button" onClick={handleLogout} disabled={pending} className={`min-h-[52px] w-full rounded-xl bg-[#ff875a] text-sm font-extrabold text-[#1c0c06] disabled:cursor-wait disabled:opacity-60 ${focus}`}>{pending ? 'Saindo…' : 'Sair'}</button>
               </div>
             ) : (

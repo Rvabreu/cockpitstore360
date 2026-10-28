@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import path from 'node:path'
 import fs from 'node:fs'
 import type { OrderEvent, OrderWithEvents, Product } from '../types/store.ts'
+import type { DashboardSnapshot } from '../types/dashboard.ts'
 import { INITIAL_PRODUCTS, INITIAL_ORDER } from '../services/storeService.ts'
 
 const AWAITING_DETAIL = 'Aguardando atualização'
@@ -140,6 +141,13 @@ export function getAllProducts(): Product[] {
     image: r.image,
     createdAt: r.created_at,
   }))
+}
+
+export function selectDashboardData(db: InstanceType<typeof Database> = getDatabase()): DashboardSnapshot {
+  return db.transaction(() => ({
+    orders: db.prepare('SELECT id, product_id, product_name, variant, quantity, total, placed_at, current_step FROM orders').all() as DashboardSnapshot['orders'],
+    products: db.prepare('SELECT id, name, category, price, created_at FROM products ORDER BY created_at ASC, id ASC').all() as DashboardSnapshot['products'],
+  }))()
 }
 
 export function getOrderWithEvents(id: string): OrderWithEvents | null {

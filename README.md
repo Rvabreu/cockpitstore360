@@ -2,7 +2,7 @@
 
 Demo full-stack e-commerce storefront ("COCKPIT STORE 360") built with TanStack
 Start + SQLite (`better-sqlite3`). Dark-only storefront: hero, product catalog,
-an order-tracking "antes/depois" demo, and the AI Cockpit flow, plus a login screen. A fictional demo
+an order-tracking "antes/depois" demo, and the AI Cockpit flow, plus login and an authenticated dashboard. A fictional demo
 for pre-sales and training — not an official product.
 
 ## Scripts
@@ -61,6 +61,30 @@ or authorization. Public signup, password recovery and MFA are not implemented.
 All authentication responses use `Cache-Control: no-store`. Failed credentials
 return the same generic message for unknown users and wrong passwords. A 429
 response includes `Retry-After`; clients do not automatically resend passwords.
+
+## E-commerce dashboard
+
+Open `/dashboard` or select **Painel** in the header. Sign in with a provisioned
+account to view a read-only overview of the shared demo dataset. It includes
+order count, registered order value, average order value, product count, status
+distribution, orders by date, an order table and the product catalog.
+
+Indicators come from SQLite, not generated sales figures. Registered value sums
+order totals; it is not paid revenue, profit or inventory. Search, status and
+inclusive date filters affect only the order table; indicators describe the full
+dataset. Invalid dates are shown as unavailable and excluded from the date series.
+Use **Atualizar dados** to read a new snapshot, including changes made in the
+public order simulator. There is no dashboard fallback to browser storage or seed
+data when the server is unavailable.
+
+`GET /api/auth/dashboard` requires a valid session linked to its CSRF cookie and
+returns `401` when anonymous or expired. It is read-only, sends no cookies and
+uses `Cache-Control: no-store`; foreign-origin requests are rejected. Client-side
+route checks are not the authorization boundary: the API verifies the session
+before reading the demo tracking database.
+
+Any provisioned account sees the same demonstrative operational data. This is
+not an administrator role system or authorization for private customer orders.
 
 ## API
 

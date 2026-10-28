@@ -4,6 +4,9 @@ import { timingSafeEqual } from 'node:crypto'
 import type { AuthConfig } from './config.ts'
 import { csrfTokenFor, type AuthStore } from './db.ts'
 import { AuthCapacityError, isValidPassword, normalizeEmail } from './password.ts'
+import { buildDashboard } from '../dashboard.ts'
+import { selectDashboardData } from '../db.ts'
+import type { DashboardData } from '../../types/dashboard.ts'
 
 function cookieValue(req: Request, name: string): string | undefined {
   const entries = (req.headers.cookie || '').split(';').map((entry) => entry.trim())
@@ -14,8 +17,8 @@ function cookieValue(req: Request, name: string): string | undefined {
   return /^[A-Za-z0-9_-]{43}$/.test(value) ? value : undefined
 }
 
-export function createAuthRouter({ config, store, now = Date.now }: {
-  config: AuthConfig; store: AuthStore; now?: () => number
+export function createAuthRouter({ config, store, now = Date.now, loadDashboard = () => buildDashboard(selectDashboardData()) }: {
+  config: AuthConfig; store: AuthStore; now?: () => number; loadDashboard?: () => DashboardData
 }) {
   const router = express.Router()
   router.use((_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next() })
@@ -24,6 +27,14 @@ export function createAuthRouter({ config, store, now = Date.now }: {
     res.cookie(name, value, { ...options, maxAge: Math.max(0, expiresAt - now()) })
   const clear = (res: Response, name: string) => res.clearCookie(name, options)
   const unauthorized = (res: Response) => res.status(403).json({ error: 'Requisição não autorizada' })
+
+  router.get('/dashboard', (req, res) => {
+    if (req.get('Sec-Fetch-Site') === 'cross-site' ||
+      (req.headers.origin !== undefined && req.headers.origin !== config.origin)) return unauthorized(res)
+    const user = store.findUserSession(cookieValue(req, config.sessionCookieName), cookieValue(req, config.csrfCookieName))
+    if (!user) return res.status(401).json({ error: 'Sessão não autenticada' })
+    res.json(loadDashboard())
+  })
 
   router.get('/session', (req, res) => {
     if (req.get('Sec-Fetch-Site') === 'cross-site' ||
