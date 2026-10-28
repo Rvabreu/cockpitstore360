@@ -6,7 +6,7 @@ import { pipeline } from 'node:stream/promises'
 import { pathToFileURL } from 'node:url'
 
 const app = express()
-app.use('/api', createApiRouter())
+app.use('/api', createApiRouter({ mode: 'production' }))
 
 const clientDist = path.resolve(process.cwd(), 'dist/client')
 app.use(express.static(clientDist))

@@ -2,6 +2,9 @@ import express from 'express'
 import type { ErrorRequestHandler } from 'express'
 import path from 'node:path'
 import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } from './db.ts'
+import { loadAuthConfig, type AuthConfig } from './auth/config.ts'
+import { createAuthStore, type AuthStore } from './auth/db.ts'
+import { createAuthRouter } from './auth/router.ts'
 
 const NOT_FOUND_MESSAGE = 'Pedido não encontrado'
 
@@ -30,8 +33,16 @@ function normalizeId(raw: string): string {
   return /^\d+$/.test(value) ? `CS-${value}` : value
 }
 
-export function createApiRouter() {
+export function createApiRouter(options: { mode?: AuthConfig['mode']; env?: Record<string, string | undefined>; store?: AuthStore; now?: () => number } = {}) {
   const router = express.Router()
+  const config = loadAuthConfig({ mode: options.mode || 'development', env: options.env })
+  // Auth has its own parser and limits, and does not share the resettable tracking database.
+  let auth: ReturnType<typeof createAuthRouter> | undefined
+  router.use('/auth', (req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store')
+    auth ??= createAuthRouter({ config, store: options.store || createAuthStore({ path: options.env?.AUTH_DB_PATH || process.env.AUTH_DB_PATH, now: options.now }), now: options.now })
+    auth(req, res, next)
+  })
   router.use(express.json())
 
   // GET /api/products

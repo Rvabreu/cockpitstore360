@@ -19,13 +19,48 @@ npm start              # Express production server (SSR + dist/client assets + /
 npm test               # vitest run
 ```
 
-## Login demonstration
+## Secure login
 
-Open `/login` or select **Entrar** in the header. The responsive form validates
-email and password, supports showing/hiding the password, and announces errors
-accessibly. This is a UI demonstration, not authentication: submission does not
-send credentials, create a session, or persist credentials. Do not use real
-credentials. The storefront and order API remain publicly accessible.
+Open `/login` or select **Entrar** in the header. Authentication is now verified
+by the server. The responsive form supports password visibility, accessible
+validation, session restoration and logout. Credentials and session tokens are
+never stored in browser storage or included in URLs.
+
+There are no default users, passwords or public registration endpoints. Provision
+a user locally with `npm run auth:provision -- usuario@example.com`, supplying
+the password through standard input or the `AUTH_PASSWORD` environment variable
+from your secret manager. Never pass a password as a command-line argument or
+commit it. Provisioning requires at least 12 characters and rejects duplicate
+users instead of silently changing their password.
+
+Users, password hashes, sessions and login limits live in `data/auth.db`, separate
+from the tracking database. Passwords use salted scrypt; opaque session tokens
+are hashed server-side. Sessions expire after eight hours, rotate on login and
+are revoked on logout. Cookies are host-only, HttpOnly and SameSite=Strict, with
+Secure and `__Host-` names in production. CSRF tokens remain in memory; requests
+are checked against the configured origin. Login attempts are rate-limited.
+
+Production startup requires `APP_ORIGIN` set to the exact public HTTPS origin
+(for example `https://store.example.com`). Terminate TLS at a trusted reverse
+proxy and restrict direct access to the backend; it does not infer trust from
+Host or forwarded headers. Development defaults to `http://localhost:5000`.
+Use a persistent volume and restrict access to `data/auth.db` and its backups.
+`AUTH_DB_PATH` can select a different authentication database for the server and
+provisioning command; use the same path for both.
+
+Authentication identifies the signed-in account only. The storefront and shared
+order simulator remain publicly accessible; there is no per-user order ownership
+or authorization. Public signup, password recovery and MFA are not implemented.
+
+### Authentication API
+
+- `GET /api/auth/session` — account or `null`, plus a CSRF token.
+- `POST /api/auth/login` — JSON email/password, exact Origin and `X-CSRF-Token`.
+- `POST /api/auth/logout` — JSON object with the same origin/CSRF checks.
+
+All authentication responses use `Cache-Control: no-store`. Failed credentials
+return the same generic message for unknown users and wrong passwords. A 429
+response includes `Retry-After`; clients do not automatically resend passwords.
 
 ## API
 

@@ -25,7 +25,7 @@ async function availablePort() {
 async function startProduction(cwd: string, port: number) {
   const child = spawn(process.execPath, [entrypoint], {
     cwd,
-    env: { ...process.env, PORT: String(port) },
+    env: { ...process.env, APP_ORIGIN: 'https://store.example', PORT: String(port) },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   await new Promise<void>((resolve, reject) => {
