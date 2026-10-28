@@ -132,6 +132,124 @@ describe.each(['Vite plugin', 'production Express'] as const)('%s HTTP API', (mo
     return await response.json() as OrderWithEvents
   }
 
+  async function login(email = 'cliente@cockpitstore360.com.br', password = 'demo123') {
+    const response = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    return await response.json() as { success: boolean; user: { id: string; name: string; email: string; role: string }; token: string }
+  }
+
+  async function me(token?: string) {
+    return fetch(`${baseUrl}/api/auth/me`, {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    })
+  }
+
+  it('authenticates both demo roles, normalizes email and exposes no password hash', async () => {
+    for (const [email, password, name, role] of [
+      ['cliente@cockpitstore360.com.br', 'demo123', 'Cliente Demo', 'customer'],
+      ['admin@cockpitstore360.com.br', 'admin123', 'Administrador Demo', 'admin'],
+    ]) {
+      const result = await login(`  ${email.toUpperCase()}  `, password)
+      expect(result).toEqual({
+        success: true, token: expect.stringMatching(/^[a-f0-9]{64}$/),
+        user: { id: expect.any(String), email, name, role },
+      })
+      const response = await me(result.token)
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ user: result.user })
+    }
+  })
+
+  it('rejects missing, invalid-type and oversized login fields with exact safe 400 errors', async () => {
+    for (const body of [
+      {}, { email: 'x' }, { password: 'x' }, { email: null, password: 'x' },
+      { email: 123, password: 'x' }, { email: ['x'], password: 'x' },
+      { email: 'x', password: {} }, { email: 'x', password: false },
+      { email: '   ', password: 'x' }, { email: 'x', password: '' },
+      { email: 'x'.repeat(255), password: 'x' }, { email: 'x', password: 'x'.repeat(1025) },
+    ]) {
+      const response = await fetch(`${baseUrl}/api/auth/login`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+      })
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({ error: 'E-mail e senha são obrigatórios' })
+    }
+    const response = await fetch(`${baseUrl}/api/auth/login`, { method: 'POST' })
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'E-mail e senha são obrigatórios' })
+  })
+
+  it('rejects incorrect credentials without disclosing whether an email exists', async () => {
+    for (const [email, password] of [
+      ['cliente@cockpitstore360.com.br', 'wrong'], ['missing@example.com', 'demo123'],
+      ["' OR 1=1 --", 'demo123'],
+    ]) {
+      const response = await fetch(`${baseUrl}/api/auth/login`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password }),
+      })
+      expect(response.status).toBe(401)
+      expect(await response.json()).toEqual({ error: 'E-mail ou senha inválidos' })
+    }
+  })
+
+  it('rejects absent, invalid and expired bearer tokens and ignores tokens in query strings', async () => {
+    const { token } = await login()
+    const sqlite = new Database(path.join(tmpDir, 'data/store.db'))
+    try {
+      sqlite.prepare('UPDATE sessions SET expires_at = ?').run(Date.now() - 1)
+    } finally {
+      sqlite.close()
+    }
+    for (const invalid of [undefined, 'invalid', 'f'.repeat(64), token]) {
+      const response = await me(invalid)
+      expect(response.status).toBe(401)
+      expect(await response.json()).toEqual({ error: 'Não autenticado' })
+    }
+    const fresh = await login()
+    const response = await fetch(`${baseUrl}/api/auth/me?token=${fresh.token}`)
+    expect(response.status).toBe(401)
+    expect(await response.json()).toEqual({ error: 'Não autenticado' })
+  })
+
+  it('revokes only the supplied session, with idempotent logout and no user reset', async () => {
+    const first = await login()
+    const second = await login()
+    await fetch(`${baseUrl}/api/reset-seed`, { method: 'POST' })
+    expect((await me(first.token)).status).toBe(200)
+    for (const token of [first.token, first.token, 'invalid', undefined]) {
+      const response = await fetch(`${baseUrl}/api/auth/logout`, {
+        method: 'POST', headers: token ? { authorization: `Bearer ${token}` } : {},
+      })
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ success: true })
+    }
+    expect((await me(first.token)).status).toBe(401)
+    expect((await me(second.token)).status).toBe(200)
+  })
+
+  it('keeps sessions and revocations after restarting the real server and SQLite connection', async () => {
+    const active = await login()
+    const revoked = await login()
+    await fetch(`${baseUrl}/api/auth/logout`, {
+      method: 'POST', headers: { authorization: `Bearer ${revoked.token}` },
+    })
+    if (mode === 'Vite plugin') {
+      databaseModule!.getDatabase().close()
+      await vite!.restart()
+    } else {
+      await stopProduction(child!)
+      child = await startProduction(tmpDir, port)
+    }
+    const response = await me(active.token)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ user: active.user })
+    expect((await me(revoked.token)).status).toBe(401)
+  })
+
   it('returns the products in Orbit, Pulse, Wave order', async () => {
     const response = await fetch(`${baseUrl}/api/products/?source=test`)
     expect(response.status).toBe(200)
@@ -221,7 +339,7 @@ describe.each(['Vite plugin', 'production Express'] as const)('%s HTTP API', (mo
 
   it('returns safe Portuguese JSON for malformed JSON without mutating the order', async () => {
     for (const body of ['{"secret":', 'not-json', '123']) {
-      for (const url of ['/api/orders/2048/advance', '/api/reset-seed']) {
+      for (const url of ['/api/orders/2048/advance', '/api/reset-seed', '/api/auth/login']) {
         const response = await fetch(`${baseUrl}${url}`, {
           method: 'POST', headers: { 'content-type': 'application/json' }, body,
         })
@@ -270,16 +388,22 @@ describe.each(['Vite plugin', 'production Express'] as const)('%s HTTP API', (mo
   })
 
   it('does not disclose SQLite errors from any API handler', async () => {
+    const { token } = await login()
     const sqlite = new Database(path.join(tmpDir, 'data/store.db'))
     try {
       for (const [table, urls] of [
         ['products', [['/api/products', 'GET'], ['/api/reset-seed', 'POST']]],
         ['orders', [['/api/orders/2048', 'GET'], ['/api/orders/2048/advance', 'POST']]],
+        ['users', [['/api/auth/login', 'POST'], ['/api/auth/me', 'GET']]],
+        ['sessions', [['/api/auth/login', 'POST'], ['/api/auth/me', 'GET'], ['/api/auth/logout', 'POST']]],
       ] as const) {
         sqlite.exec(`ALTER TABLE ${table} RENAME TO private_${table}`)
         try {
           for (const [url, method] of urls) {
-            const response = await fetch(`${baseUrl}${url}`, { method })
+            const response = await fetch(`${baseUrl}${url}`, {
+              method, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+              ...(url === '/api/auth/login' ? { body: JSON.stringify({ email: 'cliente@cockpitstore360.com.br', password: 'demo123' }) } : {}),
+            })
             expect(response.status).toBe(500)
             expect(await response.json()).toEqual({ error: 'Erro interno no servidor' })
           }

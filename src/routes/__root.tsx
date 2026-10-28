@@ -9,6 +9,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import { PackageX } from 'lucide-react'
 import Footer from '../components/Footer'
 import Header from '../components/Header'
+import { AuthProvider } from '../context/useAuth'
 
 import appCss from '../styles.css?url'
 
@@ -72,9 +73,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="font-sans antialiased min-h-screen bg-[#08090b] text-[#f7f7f8] selection:bg-[#ff633b]/20">
-        <Header />
-        {children}
-        <Footer />
+        <AuthProvider>
+          <Header />
+          {children}
+          <Footer />
+        </AuthProvider>
         <TanStackDevtools
           config={{
             position: 'bottom-right',
