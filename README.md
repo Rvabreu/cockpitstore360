@@ -1,8 +1,8 @@
 # COCKPIT STORE 360
 
 Demo full-stack e-commerce storefront ("COCKPIT STORE 360") built with TanStack
-Start + SQLite (`better-sqlite3`). Dark-only single page: hero, product catalog,
-an order-tracking "antes/depois" demo, and the AI Cockpit flow. A fictional demo
+Start + SQLite (`better-sqlite3`). Dark-only storefront: hero, product catalog,
+an order-tracking "antes/depois" demo, and the AI Cockpit flow, plus a login screen. A fictional demo
 for pre-sales and training — not an official product.
 
 ## Scripts
@@ -18,6 +18,14 @@ npm run build          # production build (dist/)
 npm start              # Express production server (SSR + dist/client assets + /api)
 npm test               # vitest run
 ```
+
+## Login demonstration
+
+Open `/login` or select **Entrar** in the header. The responsive form validates
+email and password, supports showing/hiding the password, and announces errors
+accessibly. This is a UI demonstration, not authentication: submission does not
+send credentials, create a session, or persist credentials. Do not use real
+credentials. The storefront and order API remain publicly accessible.
 
 ## API
 
