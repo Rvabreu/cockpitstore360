@@ -103,6 +103,7 @@ it('refresh renderiza etapa somente quando backend confirma, sem mutação POST'
   const row = (await screen.findByText('CS-2002')).closest('tr')!
   expect(within(row).getByText('Pedido confirmado')).toBeInTheDocument()
   expect(vi.mocked(fetch).mock.calls[2][0]).toBe('/api/auth/dashboard')
+  expect(vi.mocked(fetch).mock.calls[2][1]?.method ?? 'GET').toBe('GET')
 })
 
 it('data indisponível permanece nos KPIs mas não aparece com filtro de data ativo', async () => {
@@ -141,4 +142,116 @@ it('rede indisponível não mostra dados falsos; retry consulta apenas dashboard
   fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
   await screen.findByText('CS-2002')
   expect(vi.mocked(fetch).mock.calls.map(([url]) => url)).toEqual(['/api/auth/session', '/api/auth/dashboard', '/api/auth/dashboard'])
+})
+
+it('Centro operacional oferece três âncoras com destinos únicos reais', async () => {
+  await ready()
+  expect(screen.getByRole('heading', { level: 1, name: 'Centro operacional' })).toBeInTheDocument()
+  for (const id of ['painel-visao-geral', 'painel-pedidos', 'painel-catalogo']) {
+    const links = screen.getAllByRole('link').filter((link) => link.getAttribute('href') === `#${id}`)
+    expect(links.length).toBeGreaterThan(0)
+    expect(document.querySelectorAll(`[id="${id}"]`)).toHaveLength(1)
+    for (const link of links) {
+      expect(link).toHaveAccessibleName()
+      expect(link.closest('nav')).not.toBeNull()
+      expect(link).not.toHaveAttribute('role', 'tab')
+    }
+  }
+  expect(fetch).toHaveBeenCalledTimes(2)
+})
+
+it('refresh duplo compartilha uma leitura e não confirma etapa antes de resposta', async () => {
+  await ready()
+  let resolve!: (response: Response) => void
+  vi.mocked(fetch).mockReturnValueOnce(new Promise<Response>((done) => { resolve = done }))
+  const refresh = screen.getByRole('button', { name: 'Atualizar dados' })
+  fireEvent.click(refresh)
+  fireEvent.click(refresh)
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3))
+  expect(refresh).toBeDisabled()
+  expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  await act(async () => { resolve(json(DATA)) })
+  await screen.findByText('CS-2002')
+  expect(fetch).toHaveBeenCalledTimes(3)
+})
+
+it('resposta200 após unmount não repovoa nova montagem anônima', async () => {
+  let resolve!: (response: Response) => void
+  vi.mocked(fetch).mockResolvedValueOnce(json({ user: USER, csrfToken: 'csrf-memory' }))
+    .mockReturnValueOnce(new Promise<Response>((done) => { resolve = done }))
+  const first = render(<DashboardPage />)
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+  const signal = vi.mocked(fetch).mock.calls[1][1]?.signal
+  first.unmount()
+  expect(signal?.aborted).toBe(true)
+  vi.mocked(fetch).mockResolvedValueOnce(json({ user: null, csrfToken: 'anonymous-new' }))
+  render(<DashboardPage />)
+  await screen.findByRole('link', { name: 'Entrar na sua conta' })
+  await act(async () => { resolve(json(DATA)) })
+  expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  expect(screen.queryByText('CS-2002')).not.toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Entrar na sua conta' })).toBeInTheDocument()
+  expect(fetch).toHaveBeenCalledTimes(3)
+})
+
+it.each(['single', 'multi-null'] as const)('gráfico%s e resumo refletem base completa, nunca tabela filtrada', async (kind) => {
+  const data = structuredClone(DATA)
+  if (kind === 'single') {
+    data.orders = [{ ...data.orders[1] }]
+    data.summary = { totalOrders: 1, registeredValueCents: 10000, averageOrderValueCents: 10000, totalProducts: 1 }
+    data.ordersByDate = [{ date: '2026-10-19', count: 1 }]
+    data.statusDistribution.forEach((item) => { item.count = item.step === 1 ? 1 : 0 })
+  } else {
+    data.orders.push({ ...data.orders[1], id: 'CS-2003', placedDate: '2026-10-19', currentStep: 0, statusLabel: 'Pedido confirmado' })
+    data.orders.push({ ...data.orders[1], id: 'CS-2004', placedDate: null, currentStep: 2, statusLabel: 'Em transporte' })
+    data.summary = { totalOrders: 4, registeredValueCents: 50000, averageOrderValueCents: 12500, totalProducts: 1 }
+    data.ordersByDate[0].count = 2
+    data.statusDistribution.forEach((item) => { item.count = 1 })
+  }
+  vi.mocked(fetch).mockResolvedValueOnce(json({ user: USER, csrfToken: 'csrf-memory' })).mockResolvedValueOnce(json(data))
+  render(<DashboardPage />)
+  await screen.findByText(kind === 'single' ? 'CS-2001' : 'CS-2004')
+  const assertDerived = () => {
+    for (const { date, count } of data.ordersByDate) {
+      expect(screen.getByRole('img', { name: `${date.split('-').reverse().join('/')}: ${count} pedidos` })).toBeInTheDocument()
+    }
+    expect(screen.getByRole('img', { name: `Distribuição dos pedidos: ${data.summary.totalOrders} pedidos` })).toBeInTheDocument()
+    for (const [label, count] of [
+      ['Pedidos em andamento', data.statusDistribution.slice(0, 3).reduce((sum, item) => sum + item.count, 0)],
+      ['Pedidos entregues', data.statusDistribution[3].count],
+    ] as const) {
+      const definition = screen.getByText(label, { selector: 'dt' })
+      expect(definition.parentElement?.querySelector('dd')).toHaveTextContent(new RegExp(`^${count}$`))
+    }
+  }
+  assertDerived()
+  if (kind === 'multi-null') expect(within(table()).getByText('Data indisponível')).toBeInTheDocument()
+  change('Buscar pedido ou produto', 'sem correspondência')
+  expect(within(table()).queryByText('CS-2001')).not.toBeInTheDocument()
+  assertDerived()
+  expect(fetch).toHaveBeenCalledTimes(2)
+})
+
+it('base vazia exibe quatro KPIs zero, gráfico vazio e catálogo vazio sem divisão inválida', async () => {
+  const data = structuredClone(DATA)
+  data.summary = { totalOrders: 0, registeredValueCents: 0, averageOrderValueCents: 0, totalProducts: 0 }
+  data.orders = []
+  data.products = []
+  data.ordersByDate = []
+  data.statusDistribution.forEach((item) => { item.count = 0 })
+  vi.mocked(fetch).mockResolvedValueOnce(json({ user: USER, csrfToken: 'csrf-memory' })).mockResolvedValueOnce(json(data))
+  const { container } = render(<DashboardPage />)
+  await screen.findByText('Nenhum pedido registrado.')
+  const indicators = screen.getByRole('region', { name: 'Indicadores da base completa' })
+  for (const [label, value] of [['Pedidos', '0'], ['Valor registrado', 'R$ 0,00'], ['Ticket médio', 'R$ 0,00'], ['Produtos', '0']]) {
+    const definition = within(indicators).getByText(label, { selector: 'dt' })
+    expect(definition.parentElement?.querySelector('dd')).toHaveTextContent(value)
+  }
+  expect(screen.getByText('Nenhum pedido com data disponível.')).toBeInTheDocument()
+  expect(screen.getByText('Nenhum produto no catálogo.')).toBeInTheDocument()
+  expect(screen.getByRole('img', { name: 'Distribuição dos pedidos: 0 pedidos' })).toBeInTheDocument()
+  for (const { label } of data.statusDistribution) {
+    expect(screen.getByRole('img', { name: `${label}: 0 de 0 pedidos` })).toBeInTheDocument()
+  }
+  expect(container.innerHTML).not.toMatch(/NaN|Infinity/)
 })

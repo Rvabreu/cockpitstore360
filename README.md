@@ -67,7 +67,12 @@ response includes `Retry-After`; clients do not automatically resend passwords.
 Open `/dashboard` or select **Painel** in the header. Sign in with a provisioned
 account to view a read-only overview of the shared demo dataset. It includes
 order count, registered order value, average order value, product count, status
-distribution, orders by date, an order table and the product catalog.
+distribution, orders by date, an order table and the product catalog. The new
+**Centro operacional** layout adds section navigation (sidebar on desktop,
+compact links on mobile), a status donut, date bars and an operational summary.
+Orders in progress are the sum of stages 0–2; delivered orders are stage 3.
+Charts use only existing dates and counts, with explicit empty states instead of
+invented projections or growth figures.
 
 Indicators come from SQLite, not generated sales figures. Registered value sums
 order totals; it is not paid revenue, profit or inventory. Search, status and
