@@ -1,8 +1,8 @@
 import Database from 'better-sqlite3'
 import path from 'node:path'
 import fs from 'node:fs'
-import type { OrderEvent, OrderWithEvents, Product } from '../types/store'
-import { INITIAL_PRODUCTS, INITIAL_ORDER } from '../services/storeService'
+import type { OrderEvent, OrderWithEvents, Product } from '../types/store.ts'
+import { INITIAL_PRODUCTS, INITIAL_ORDER } from '../services/storeService.ts'
 
 const AWAITING_DETAIL = 'Aguardando atualização'
 

@@ -1,18 +1,13 @@
 import express from 'express'
 import path from 'node:path'
-import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } from './db'
+import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } from './db.ts'
 
-const NOT_FOUND_MESSAGE = 'Pedido não localizado neste ambiente de demonstração.'
+const NOT_FOUND_MESSAGE = 'Pedido não encontrado'
 
-/** Normalize a path order id: decode, strip leading '#', trim, uppercase. */
+/** Express has already decoded the path parameter; normalize it exactly once. */
 function normalizeId(raw: string): string {
-  let value = raw
-  try {
-    value = decodeURIComponent(raw)
-  } catch {
-    value = raw
-  }
-  return value.replace(/^#/, '').trim().toUpperCase()
+  const value = raw.trim().replace(/^#/, '').trim().toUpperCase()
+  return /^\d+$/.test(value) ? `CS-${value}` : value
 }
 
 export function createApiRouter() {
@@ -65,6 +60,10 @@ export function createApiRouter() {
     } catch (err: any) {
       res.status(500).json({ error: err.message })
     }
+  })
+
+  router.use((_req, res) => {
+    res.status(404).json({ error: 'Endpoint não encontrado' })
   })
 
   return router
