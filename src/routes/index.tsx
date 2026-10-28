@@ -72,6 +72,7 @@ export function StorefrontPage() {
       {/* Hero */}
       <section className="pt-[64px] pb-[30px]">
         <div className="max-w-[1240px] mx-auto px-8">
+          <a href="/dashboard" className="mb-4 inline-flex min-h-11 items-center text-sm font-semibold text-[#ff956f] min-[851px]:hidden focus-visible:outline-2 focus-visible:outline-[#ff633b]">Explorar dashboard demonstrativo →</a>
           <div
             className="min-h-[406px] border border-[#303034] rounded-[28px] overflow-hidden flex items-center relative"
             style={{

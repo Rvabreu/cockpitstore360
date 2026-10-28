@@ -22,6 +22,7 @@ describe('Header autenticado', () => {
   it('mostra Entrar para /login e âncoras absolutas da loja, inclusive tracking', () => {
     render(<Header />)
     expect(screen.getByRole('link', { name: 'Entrar' })).toHaveAttribute('href', '/login')
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/dashboard')
     expect(screen.getByRole('link', { name: 'Produtos' })).toHaveAttribute('href', '/#colecao')
     expect(screen.getByRole('link', { name: 'Meus pedidos' })).toHaveAttribute('href', '/#pedidos')
     expect(screen.getByRole('link', { name: 'Como evoluímos' })).toHaveAttribute('href', '/#fluxo')

@@ -11,14 +11,17 @@ export default function Header() {
           <span className="grid place-items-center w-[35px] h-[35px] rounded-[11px] text-[#17100d] bg-[linear-gradient(130deg,#ff956f,#ff4b24)] font-black text-[19px] shadow-[0_0_28px_#ff613c3a]">
             C
           </span>
-          <strong className="text-[13px] sm:text-[17px] tracking-[-.6px]">
+          <strong className="text-[13px] sm:text-[17px] min-[851px]:max-[1050px]:text-[14px] tracking-[-.6px]">
             COCKPIT <em className="not-italic text-[#ff633b]">STORE</em> 360
           </strong>
         </a>
-        <span className="hidden min-[1280px]:block shrink-0 text-[10px] tracking-[1.5px] font-extrabold text-[#ffba9e] bg-[#ff633b12] border border-[#ff633b55] rounded-[40px] px-[11px] py-2">
+        <span className="hidden min-[1440px]:block shrink-0 text-[10px] tracking-[1.5px] font-extrabold text-[#ffba9e] bg-[#ff633b12] border border-[#ff633b55] rounded-[40px] px-[11px] py-2">
           DEMO FICTÍCIA
         </span>
-        <nav aria-label="Navegação principal" className="hidden min-[851px]:flex shrink-0 gap-5 ml-auto">
+        <nav aria-label="Navegação principal" className="hidden min-[851px]:flex shrink-0 gap-3 min-[1050px]:gap-5 ml-auto">
+          <Link to="/dashboard" className="text-[13px] text-[#c0c0c5] font-semibold hover:text-white no-underline focus-visible:outline-2 focus-visible:outline-[#ff633b]">
+            Dashboard
+          </Link>
           <a href="/#colecao" className="text-[13px] text-[#c0c0c5] font-semibold hover:text-white no-underline">
             Produtos
           </a>
@@ -32,7 +35,7 @@ export default function Header() {
         <img
           src="/assets/logo_ai_cockpit_referencia.svg"
           alt="Logo AI Cockpit, marca de referência"
-          className="hidden min-[1200px]:block shrink-0 h-[31px] w-[120px] object-contain object-left opacity-90"
+          className="hidden min-[1280px]:block shrink-0 h-[31px] w-[120px] object-contain object-left opacity-90"
         />
         <div className="ml-auto min-[851px]:ml-0 flex min-w-0 items-center gap-2">
           {isLoading ? (
