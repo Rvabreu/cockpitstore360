@@ -258,22 +258,32 @@ export async function loadOrderApi(id: string): Promise<OrderWithEvents> {
   }
 }
 
-export async function advanceOrderApi(id: string): Promise<OrderWithEvents> {
+const pendingAdvances = new Map<string, Promise<OrderWithEvents>>()
+
+export function advanceOrderApi(id: string): Promise<OrderWithEvents> {
   const normalized = normalizeOrderId(id)
+  const existing = pendingAdvances.get(normalized)
+  if (existing) return existing
+
   ++orderRequestVersion
-  try {
-    const res = await fetch(`/api/orders/${encodeURIComponent(normalized)}/advance`, { method: 'POST' })
-    if (!res.ok) throw new Error(`Erro HTTP ${res.status}`)
-    const data: unknown = await res.json()
-    if (!isOrder(data, normalized)) throw new Error('Dados do pedido inválidos')
-    saveOrder(data)
-    return data
-  } catch {
-    throw new Error('Não foi possível atualizar o pedido. Tente novamente.')
-  } finally {
+  const pending = (async () => {
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(normalized)}/advance`, { method: 'POST' })
+      if (!res.ok) throw new Error(`Erro HTTP ${res.status}`)
+      const data: unknown = await res.json()
+      if (!isOrder(data, normalized)) throw new Error('Dados do pedido inválidos')
+      saveOrder(data)
+      return data
+    } catch {
+      throw new Error('Não foi possível atualizar o pedido. Tente novamente.')
+    }
+  })().finally(() => {
     // Reads started during a mutation may also describe the previous step.
     ++orderRequestVersion
-  }
+    pendingAdvances.delete(normalized)
+  })
+  pendingAdvances.set(normalized, pending)
+  return pending
 }
 
 /**
