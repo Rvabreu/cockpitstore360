@@ -14,6 +14,13 @@ afterEach(cleanup)
 function submit() { fireEvent.click(screen.getByRole('button', { name: 'Entrar na minha conta' })) }
 
 describe('Tela de login', () => {
+  it('apresenta a nova página com branding e prévia identificada como demonstrativa', () => {
+    render(<LoginPage />)
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Acesse sua conta')
+    expect(screen.getByRole('heading', { name: 'Tudo que você gosta. Em um só lugar.' })).toBeInTheDocument()
+    expect(screen.getByText('Prévia ilustrativa da experiência na loja.')).toBeInTheDocument()
+  })
+
   it('valida e-mail e senha em pt-BR e move foco para o campo inválido', () => {
     render(<LoginPage />)
     fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'inválido' } })
