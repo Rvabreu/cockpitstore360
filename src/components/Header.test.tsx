@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import Header from './Header'
 
-const mocks = vi.hoisted(() => ({ logout: vi.fn(), auth: { user: null as null | { name: string }, isLoading: false, sessionError: null as string | null } }))
+const mocks = vi.hoisted(() => ({ logout: vi.fn(), auth: { user: null as null | { name: string; role?: string }, isLoading: false, sessionError: null as string | null } }))
 vi.mock('../context/useAuth', () => ({ useAuth: () => ({ ...mocks.auth, logout: mocks.logout }) }))
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ to, children, ...props }: { to: string; children: React.ReactNode }) => <a href={to} {...props}>{children}</a>,
@@ -11,6 +11,21 @@ beforeEach(() => { mocks.auth = { user: null, isLoading: false, sessionError: nu
 afterEach(cleanup)
 
 describe('Header autenticado', () => {
+  it('exibe CRM apenas para administrador verificado, inclusive navegação mobile', () => {
+    const { rerender } = render(<Header />)
+    expect(screen.queryByRole('link', { name: /CRM/ })).not.toBeInTheDocument()
+    mocks.auth.user = { name: 'Cliente', role: 'customer' }
+    rerender(<Header />)
+    expect(screen.queryByRole('link', { name: /CRM/ })).not.toBeInTheDocument()
+    mocks.auth.user = { name: 'Admin', role: 'admin' }
+    mocks.auth.isLoading = true
+    rerender(<Header />)
+    expect(screen.queryByRole('link', { name: /CRM/ })).not.toBeInTheDocument()
+    mocks.auth.isLoading = false
+    rerender(<Header />)
+    expect(screen.getByRole('link', { name: /CRM/ })).toHaveAttribute('href', '/crm')
+    expect(screen.getByRole('navigation', { name: 'Área administrativa' })).not.toHaveClass('hidden')
+  })
   it('omite Entrar/Sair enquanto verifica a sessão', () => {
     mocks.auth.isLoading = true
     render(<Header />)

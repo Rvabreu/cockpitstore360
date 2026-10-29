@@ -1,11 +1,12 @@
 import express from 'express'
-import type { ErrorRequestHandler } from 'express'
+import type { ErrorRequestHandler, RequestHandler } from 'express'
 import path from 'node:path'
 import {
   getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase,
   authenticateUser, createSession, getUserBySession, revokeSession,
 } from './db.ts'
 import { validCredentials } from './auth.ts'
+import { createCrmRouter } from './crmRouter.ts'
 
 const NOT_FOUND_MESSAGE = 'Pedido não encontrado'
 
@@ -36,6 +37,14 @@ function normalizeId(raw: string): string {
 
 export function createApiRouter() {
   const router = express.Router()
+  const requireAdmin: RequestHandler = (req, res, next) => {
+    const token = bearerToken(req.headers.authorization)
+    const user = token ? getUserBySession(token) : null
+    if (!user) return res.status(401).json({ error: 'Não autenticado' })
+    if (user.role !== 'admin') return res.status(403).json({ error: 'Acesso restrito a administradores' })
+    next()
+  }
+  router.use('/crm', createCrmRouter(requireAdmin))
   router.use(express.json())
 
   // Tokens are opaque credentials: never cache responses or include them in URLs.

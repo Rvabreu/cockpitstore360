@@ -9,6 +9,7 @@ import path from 'node:path'
 import Database from 'better-sqlite3'
 import type { ViteDevServer } from 'vite'
 import type { OrderWithEvents, Product } from '../types/store'
+import type { CrmContact, CrmContactsResponse, CrmNotesResponse } from '../types/crm'
 
 const originalCwd = process.cwd()
 const entrypoint = path.resolve(originalCwd, 'server.js')
@@ -147,6 +148,191 @@ describe.each(['Vite plugin', 'production Express'] as const)('%s HTTP API', (mo
       headers: token ? { authorization: `Bearer ${token}` } : {},
     })
   }
+
+  async function crmRequest(url: string, token?: string, method = 'GET', body?: unknown) {
+    return fetch(`${baseUrl}/api/crm${url}`, {
+      method,
+      headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), 'content-type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    })
+  }
+  async function crmSnapshot() {
+    // Read-only fixture connection observes writes without bypassing HTTP authorization.
+    const sqlite = new Database(path.join(tmpDir, 'data/store.db'), { readonly: true })
+    try {
+      return { contacts: sqlite.prepare('SELECT * FROM crm_contacts ORDER BY id').all(), notes: sqlite.prepare('SELECT * FROM crm_notes ORDER BY id').all() }
+    } finally { sqlite.close() }
+  }
+
+  it('CRM rejects every route/method for absent, invalid, expired, revoked and customer tokens before parsing, without writes', async () => {
+    const customer = await login()
+    const expired = await login('admin@cockpitstore360.com.br', 'admin123')
+    const { hashToken } = await import('./auth')
+    const sqlite = new Database(path.join(tmpDir, 'data/store.db'))
+    try { sqlite.prepare('UPDATE sessions SET expires_at = ? WHERE token_hash = ?').run(Date.now() - 1, hashToken(expired.token)) } finally { sqlite.close() }
+    const revoked = await login('admin@cockpitstore360.com.br', 'admin123')
+    await fetch(`${baseUrl}/api/auth/logout`, { method: 'POST', headers: { authorization: `Bearer ${revoked.token}` } })
+    const snapshot = await crmSnapshot()
+    for (const [token, status, error] of [
+      [undefined, 401, 'Não autenticado'], ['invalid', 401, 'Não autenticado'], ['f'.repeat(64), 401, 'Não autenticado'],
+      [expired.token, 401, 'Não autenticado'], [revoked.token, 401, 'Não autenticado'], [customer.token, 403, 'Acesso restrito a administradores'],
+    ] as const) {
+      for (const [url, method] of [
+        ['/contacts', 'GET'], ['/contacts', 'POST'], ['/contacts/missing', 'GET'], ['/contacts/missing', 'PUT'], ['/contacts/missing', 'DELETE'],
+        ['/contacts/missing/notes', 'GET'], ['/contacts/missing/notes', 'POST'], ['/unknown', 'PATCH'], ['/contacts/%E0%A4%A', 'GET'],
+      ]) {
+        const response = await fetch(`${baseUrl}/api/crm${url}`, {
+          method, headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), 'content-type': 'application/json' },
+          ...(['POST', 'PUT', 'PATCH'].includes(method) ? { body: '{invalid' } : {}),
+        })
+        expect(response.status).toBe(status)
+        expect(response.headers.get('cache-control')).toBe('no-store')
+        expect(await response.json()).toEqual({ error })
+      }
+      const oversized = await fetch(`${baseUrl}/api/crm/contacts`, {
+        method: 'POST', headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), 'content-type': 'application/json' }, body: 'x'.repeat(20000),
+      })
+      expect(oversized.status).toBe(status)
+    }
+    expect(await crmSnapshot()).toEqual(snapshot)
+    const admin = await login('admin@cockpitstore360.com.br', 'admin123')
+    expect((await crmRequest(`/contacts?token=${admin.token}`)).status).toBe(401)
+  })
+
+  it('CRM admin CRUD envelopes, normalized email conflict, notes, summaries and cascade are identical', async () => {
+    const { token } = await login('admin@cockpitstore360.com.br', 'admin123')
+    const input = { name: '  Teste CRM  ', email: '  TESTE@EXAMPLE.COM  ', phone: ' 5511 ', company: ' Demo empresa ', stage: 'novo' }
+    const initialResponse = await crmRequest('/contacts', token)
+    expect(initialResponse.status).toBe(200)
+    expect(initialResponse.headers.get('cache-control')).toBe('no-store')
+    const initial = await initialResponse.json() as CrmContactsResponse
+    const response = await crmRequest('/contacts', token, 'POST', input)
+    expect(response.status).toBe(201)
+    const { contact } = await response.json() as { contact: CrmContact }
+    expect(contact).toMatchObject({ name: 'Teste CRM', email: 'teste@example.com', phone: '5511', company: 'Demo empresa', stage: 'novo' })
+    expect(await (await crmRequest(`/contacts/${contact.id}`, token)).json()).toEqual({ contact })
+    const duplicate = await crmRequest('/contacts', token, 'POST', { ...input, email: 'teste@example.com' })
+    expect(duplicate.status).toBe(409)
+    expect(await duplicate.json()).toEqual({ error: 'E-mail já cadastrado' })
+    const updatedResponse = await crmRequest(`/contacts/${contact.id}`, token, 'PUT', { ...input, name: 'Literal %_\\', stage: 'cliente' })
+    expect(updatedResponse.status).toBe(200)
+    const updated = (await updatedResponse.json()).contact as CrmContact
+    expect(updated.createdAt).toBe(contact.createdAt)
+    expect(updated.updatedAt > contact.updatedAt).toBe(true)
+    const filtered = await (await crmRequest(`/contacts?q=${encodeURIComponent('%_\\')}&stage=cliente&limit=1`, token)).json() as CrmContactsResponse
+    expect(filtered.contacts).toEqual([updated])
+    expect(filtered.total).toBe(1)
+    expect(filtered.summary.total).toBe(initial.summary.total + 1)
+    expect(filtered.summary.byStage.cliente).toBe(initial.summary.byStage.cliente + 1)
+    expect(await (await crmRequest(`/contacts/${contact.id}/notes`, token)).json()).toEqual({ notes: [], total: 0 })
+    const noteResponse = await crmRequest(`/contacts/${contact.id}/notes`, token, 'POST', { body: '  Ligação demonstrativa  ' })
+    expect(noteResponse.status).toBe(201)
+    const { note } = await noteResponse.json()
+    expect(note).toMatchObject({ contactId: contact.id, body: 'Ligação demonstrativa' })
+    expect(await (await crmRequest(`/contacts/${contact.id}/notes?limit=1&offset=0`, token)).json()).toEqual({ notes: [note], total: 1 })
+    expect((await (await crmRequest(`/contacts/${contact.id}`, token)).json()).contact.updatedAt > updated.updatedAt).toBe(true)
+    const deletion = await crmRequest(`/contacts/${contact.id}`, token, 'DELETE')
+    expect(deletion.status).toBe(200)
+    expect(await deletion.json()).toEqual({ success: true })
+    for (const [url, method, body] of [[`/contacts/${contact.id}`, 'GET'], [`/contacts/${contact.id}`, 'PUT', input], [`/contacts/${contact.id}`, 'DELETE'], [`/contacts/${contact.id}/notes`, 'GET'], [`/contacts/${contact.id}/notes`, 'POST', { body: 'x' }]] as const) {
+      const missing = await crmRequest(url, token, method, body)
+      expect(missing.status).toBe(404)
+      expect(await missing.json()).toEqual({ error: 'Contato não encontrado' })
+    }
+    const snapshot = await crmSnapshot()
+    expect(snapshot.notes.some((item) => (item as { contact_id: string }).contact_id === contact.id)).toBe(false)
+  })
+
+  it('CRM rejects invalid/unknown/repeated query params and incomplete/typed/extra input with exact 400, atomically', async () => {
+    const { token } = await login('admin@cockpitstore360.com.br', 'admin123')
+    const snapshot = await crmSnapshot()
+    for (const query of ['unknown=x', 'q=a&q=b', 'stage=novo&stage=cliente', 'q=' + 'x'.repeat(101), 'stage=bad', 'stage=', 'limit=0', 'limit=101', 'limit=1.1', 'limit=-1', 'limit=', 'limit=1&limit=2', 'offset=-1', 'offset=100001', 'offset=1e2', 'offset=']) {
+      const response = await crmRequest(`/contacts?${query}`, token)
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({ error: 'Dados do CRM inválidos' })
+    }
+    const input = { name: 'Demo', email: 'valid@example.com', phone: '', company: '', stage: 'novo' }
+    for (const body of [undefined, null, [], {}, { ...input, extra: true }, { ...input, name: ' ' }, { ...input, name: 'x'.repeat(121) }, { ...input, email: 'bad' }, { ...input, email: 'x'.repeat(255) }, { ...input, phone: false }, { ...input, phone: 'x'.repeat(41) }, { ...input, company: 'x'.repeat(121) }, { ...input, stage: 'BAD' }]) {
+      for (const [url, method] of [['/contacts', 'POST'], ['/contacts/missing', 'PUT']]) {
+        const response = await crmRequest(url, token, method, body)
+        expect(response.status).toBe(400)
+        expect(await response.json()).toEqual({ error: 'Dados do CRM inválidos' })
+      }
+    }
+    for (const body of [{}, { body: '' }, { body: ' ' }, { body: 123 }, { body: 'x'.repeat(2001) }, { body: 'x', extra: true }]) {
+      const response = await crmRequest('/contacts/missing/notes', token, 'POST', body)
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({ error: 'Dados do CRM inválidos' })
+    }
+    for (const query of ['q=x', 'limit=0', 'offset=100001', 'limit=1&limit=2']) {
+      const response = await crmRequest(`/contacts/missing/notes?${query}`, token)
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({ error: 'Dados do CRM inválidos' })
+    }
+    for (const [url, method] of [['/contacts/missing?extra=1', 'GET'], ['/contacts?extra=1', 'POST'], ['/contacts/missing?extra=1', 'DELETE']]) {
+      expect((await crmRequest(url, token, method, method === 'POST' ? input : undefined)).status).toBe(400)
+    }
+    const validBoundary = await crmRequest('/contacts?limit=100&offset=100000&q=' + 'x'.repeat(100), token)
+    expect(validBoundary.status).toBe(200)
+    expect((await validBoundary.json()).contacts).toEqual([])
+    expect(await crmSnapshot()).toEqual(snapshot)
+  })
+
+  it('CRM enforces 16kb parsing after authorization and returns safe errors even for unknown endpoints', async () => {
+    const { token } = await login('admin@cockpitstore360.com.br', 'admin123')
+    for (const [body, contentType, status, error] of [
+      ['{invalid', 'application/json', 400, 'Dados do CRM inválidos'], ['123', 'application/json', 400, 'Dados do CRM inválidos'],
+      [JSON.stringify({ body: 'x'.repeat(16400) }), 'application/json', 413, 'Corpo da requisição muito grande'],
+      ['{}', 'application/json; charset=iso-8859-1', 415, 'Formato da requisição não suportado'],
+    ] as const) {
+      const response = await fetch(`${baseUrl}/api/crm/contacts`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': contentType }, body })
+      expect(response.status).toBe(status)
+      expect(response.headers.get('cache-control')).toBe('no-store')
+      expect(await response.json()).toEqual({ error })
+    }
+    const malformed = await crmRequest('/contacts/%E0%A4%A', token)
+    expect(malformed.status).toBe(400)
+    expect(await malformed.json()).toEqual({ error: 'Dados do CRM inválidos' })
+    for (const [url, method] of [['/unknown', 'GET'], ['/contacts', 'PATCH'], ['/contacts/missing/notes', 'DELETE']]) {
+      const response = await crmRequest(url, token, method)
+      expect(response.status).toBe(404)
+      expect(await response.json()).toEqual({ error: 'Endpoint não encontrado' })
+    }
+    const sqlite = new Database(path.join(tmpDir, 'data/store.db'))
+    try {
+      sqlite.exec('ALTER TABLE crm_contacts RENAME TO private_crm_contacts')
+      const response = await crmRequest('/contacts', token)
+      expect(response.status).toBe(500)
+      expect(await response.json()).toEqual({ error: 'Erro interno no servidor' })
+    } finally { sqlite.exec('ALTER TABLE private_crm_contacts RENAME TO crm_contacts'); sqlite.close() }
+  })
+
+  it('CRM persists notes and edits through product reset/restart and does not reseed after all deletions', async () => {
+    const { token } = await login('admin@cockpitstore360.com.br', 'admin123')
+    const response = await crmRequest('/contacts', token, 'POST', { name: 'Restart Demo', email: 'restart@example.com', phone: '', company: '', stage: 'qualificado' })
+    const { contact } = await response.json() as { contact: CrmContact }
+    const updatedResponse = await crmRequest(`/contacts/${contact.id}`, token, 'PUT', { name: 'Mantido Demo', email: 'restart@example.com', phone: '123', company: '', stage: 'cliente' })
+    const updated = (await updatedResponse.json()).contact
+    const note = (await (await crmRequest(`/contacts/${contact.id}/notes`, token, 'POST', { body: 'Nota persistida' })).json()).note
+    const beforeReset = await crmSnapshot()
+    await fetch(`${baseUrl}/api/reset-seed`, { method: 'POST' })
+    expect(await crmSnapshot()).toEqual(beforeReset)
+    async function restart() {
+      if (mode === 'Vite plugin') { databaseModule!.getDatabase().close(); await vite!.restart() }
+      else { await stopProduction(child!); child = await startProduction(tmpDir, port) }
+    }
+    await restart()
+    expect(await (await crmRequest(`/contacts/${contact.id}`, token)).json()).toEqual({ contact: { ...updated, updatedAt: expect.any(String) } })
+    expect(await (await crmRequest(`/contacts/${contact.id}/notes`, token)).json() as CrmNotesResponse).toEqual({ notes: [note], total: 1 })
+    const contacts = await (await crmRequest('/contacts', token)).json() as CrmContactsResponse
+    for (const item of contacts.contacts) expect((await crmRequest(`/contacts/${item.id}`, token, 'DELETE')).status).toBe(200)
+    await fetch(`${baseUrl}/api/reset-seed`, { method: 'POST' })
+    await restart()
+    const empty = await (await crmRequest('/contacts', token)).json() as CrmContactsResponse
+    expect(empty.contacts).toEqual([])
+    expect(empty.total).toBe(0)
+    expect(empty.summary).toEqual({ total: 0, byStage: { novo: 0, contato: 0, qualificado: 0, cliente: 0, perdido: 0 } })
+  })
 
   it('authenticates both demo roles, normalizes email and exposes no password hash', async () => {
     for (const [email, password, name, role] of [

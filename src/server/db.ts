@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import path from 'node:path'
 import fs from 'node:fs'
+import { initializeCrmDatabase } from './crmDb.ts'
 import type { OrderEvent, OrderWithEvents, Product } from '../types/store.ts'
 import { INITIAL_PRODUCTS, INITIAL_ORDER } from '../services/storeService.ts'
 import {
@@ -77,6 +78,7 @@ export function getDatabase(): InstanceType<typeof Database> {
 
   // User migration/seed is independent of the product seed, including old DBs.
   db.transaction(() => seedUsers(db))()
+  initializeCrmDatabase(db)
 
   // Check if seed needed
   const countRow = db.prepare('SELECT COUNT(*) as count FROM products').get() as { count: number }

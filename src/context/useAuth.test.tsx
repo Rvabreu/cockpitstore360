@@ -16,12 +16,87 @@ function deferred<T>() {
 function save(target: Storage = localStorage) { target.setItem(AUTH_STORAGE_KEY, JSON.stringify({ user, token: 'saved-token' })) }
 
 beforeEach(() => {
+  // JSDOM 25 predates AbortSignal.any; exercise browser semantics in the test realm.
+  vi.stubGlobal('AbortSignal', class extends AbortSignal {
+    static any(signals: AbortSignal[]) {
+    const controller = new AbortController()
+    for (const signal of signals) {
+      if (signal.aborted) controller.abort(signal.reason)
+      else signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true })
+    }
+      return controller.signal
+    }
+  })
   localStorage.clear()
   sessionStorage.clear()
   fetchMock.mockReset()
   vi.stubGlobal('fetch', fetchMock)
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
+
+describe('authenticatedFetch privado', () => {
+  it('recusa chamadas antes de /me verificar o usuário', async () => {
+    save()
+    fetchMock.mockReturnValue(deferred<Response>().promise)
+    const { result } = renderHook(useAuth, { wrapper })
+    await expect(result.current.authenticatedFetch('/api/crm/contacts')).rejects.toThrow('Não autenticado')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(result.current).not.toHaveProperty('token')
+  })
+  it.each(['https://evil.test/api/crm/contacts', '//evil.test/api/crm/contacts', '/api/auth/me', '/api/crm/../auth/me', '/api/crm/%2e%2e/auth/me', '/api/crm/%252e%252e/auth/me', '/api/crm/a%5c..%5csecret', '/api/crm/a#fragment'])('recusa caminho inseguro %s sem fetch', async (path) => {
+    const { result } = renderHook(useAuth, { wrapper })
+    await expect(result.current.authenticatedFetch(path)).rejects.toThrow('Caminho')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+  it('sobrescreve Authorization, preserva headers e combina abort/timeout sem cache', async () => {
+    save()
+    fetchMock.mockResolvedValueOnce(reply({ user })).mockResolvedValue(reply({ contacts: [] }))
+    const { result } = renderHook(useAuth, { wrapper })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    const controller = new AbortController()
+    await result.current.authenticatedFetch('/api/crm/contacts?q=test', { headers: new Headers({ authorization: 'evil', 'Content-Type': 'application/json' }), signal: controller.signal, cache: 'force-cache' })
+    const init = fetchMock.mock.calls.at(-1)![1]
+    expect(init.headers.get('Authorization')).toBe('Bearer saved-token')
+    expect(init.headers.get('Content-Type')).toBe('application/json')
+    expect(init.cache).toBe('no-store')
+    expect(init.redirect).toBe('error')
+    controller.abort()
+    expect(init.signal.aborted).toBe(true)
+  })
+  it('403 não encerra sessão, 401 atual limpa sessão', async () => {
+    save()
+    fetchMock.mockResolvedValueOnce(reply({ user })).mockResolvedValueOnce(reply({}, 403)).mockResolvedValueOnce(reply({}, 401))
+    const { result } = renderHook(useAuth, { wrapper })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    await act(async () => { await result.current.authenticatedFetch('/api/crm/contacts') })
+    expect(result.current.user).toEqual(user)
+    await act(async () => { await result.current.authenticatedFetch('/api/crm/contacts') })
+    expect(result.current.user).toBeNull()
+    expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull()
+  })
+  it('401 de token antigo não revoga um novo login', async () => {
+    save()
+    const old = deferred<Response>()
+    fetchMock.mockResolvedValueOnce(reply({ user })).mockReturnValueOnce(old.promise).mockResolvedValueOnce(reply({ success: true, user, token: 'new-token' })).mockResolvedValue(reply({ success: true }))
+    const { result } = renderHook(useAuth, { wrapper })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    const request = result.current.authenticatedFetch('/api/crm/contacts')
+    await act(async () => { await result.current.login(user.email, 'demo123') })
+    await act(async () => { old.resolve(reply({}, 401)); await request })
+    expect(result.current.user).toEqual(user)
+    expect(JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY)!).token).toBe('new-token')
+  })
+  it('uma função retida após unmount não pode enviar credenciais', async () => {
+    fetchMock.mockResolvedValue(reply({ success: true, user, token: 'new-token' }))
+    const { result, unmount } = renderHook(useAuth, { wrapper })
+    await act(async () => { await result.current.login(user.email, 'demo123') })
+    const request = result.current.authenticatedFetch
+    unmount()
+    const calls = fetchMock.mock.calls.length
+    await expect(request('/api/crm/contacts')).rejects.toThrow('Não autenticado')
+    expect(fetchMock).toHaveBeenCalledTimes(calls)
+  })
+})
 
 describe('Restauração e hidratação da sessão', () => {
   it('começa anônimo/carregando no SSR e na hidratação sem ler storage nem mostrar usuário não verificado', async () => {

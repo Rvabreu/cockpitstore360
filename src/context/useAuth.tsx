@@ -20,6 +20,7 @@ interface AuthContextValue {
   sessionError: string | null
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>
   logout: () => Promise<void>
+  authenticatedFetch: (path: string, init?: RequestInit) => Promise<Response>
 }
 
 export const AUTH_STORAGE_KEY = 'cockpit_store_auth_v1'
@@ -96,13 +97,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [sessionError, setSessionError] = useState<string | null>(null)
   const token = useRef<string | null>(null)
   const generation = useRef(0)
+  const verified = useRef(false)
 
   useEffect(() => {
     const current = ++generation.current
     const saved = readSession()
     if (!saved) {
       setIsLoading(false)
-      return () => { generation.current++ }
+      return () => { generation.current++; verified.current = false }
     }
     token.current = saved.session.token
     void (async () => {
@@ -121,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (current !== generation.current) return
         if (!isUser(body.user)) throw new Error('Resposta de sessão inválida')
         setUser(body.user)
+        verified.current = true
         if (!persistSession({ token: saved.session.token, user: body.user }, saved.rememberMe)) {
           setSessionError('Seu navegador não permite salvar a sessão. Ela ficará disponível apenas nesta página.')
         }
@@ -132,11 +135,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (current === generation.current) setIsLoading(false)
       }
     })()
-    return () => { generation.current++ }
+    return () => { generation.current++; verified.current = false }
   }, [])
 
   const login = useCallback(async (email: string, password: string, rememberMe = true) => {
     const current = ++generation.current
+    verified.current = false
+    setUser(null)
     setIsLoading(true)
     setSessionError(null)
     try {
@@ -163,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const previous = token.current
       token.current = body.token
       setUser(body.user)
+      verified.current = true
       if (!persistSession({ token: body.token, user: body.user }, rememberMe)) {
         setSessionError('Seu navegador não permite salvar a sessão. Ela ficará disponível apenas nesta página.')
       }
@@ -176,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const current = ++generation.current
     const previous = token.current
     token.current = null
+    verified.current = false
     setUser(null)
     setSessionError(null)
     setIsLoading(true)
@@ -194,8 +201,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const authenticatedFetch = useCallback(async (path: string, init: RequestInit = {}) => {
+    // Validate before attaching the private credential, including nested encodings.
+    let pathname = path.split('?')[0]
+    if (!path.startsWith('/api/crm/') || path.includes('#') || /[\u0000-\u0020\u007f]/.test(pathname)) throw new Error('Caminho do CRM inválido')
+    for (let depth = 0; depth < 10; depth++) {
+      if (!pathname.startsWith('/api/crm/') || /[\u0000-\u0020\u007f]/.test(pathname) || pathname.includes('\\') || pathname.split('/').some(part => part === '.' || part === '..')) {
+        throw new Error('Caminho do CRM inválido')
+      }
+      let decoded: string
+      try { decoded = decodeURIComponent(pathname) } catch { throw new Error('Caminho do CRM inválido') }
+      if (decoded === pathname) break
+      pathname = decoded
+      if (depth === 9) throw new Error('Caminho do CRM inválido')
+    }
+    if (pathname.includes('?') || pathname.includes('#') || pathname.includes('//')) throw new Error('Caminho do CRM inválido')
+    const credential = token.current
+    const current = generation.current
+    if (!verified.current || !credential) throw new Error('Não autenticado')
+    const headers = new Headers(init.headers)
+    headers.set('Authorization', `Bearer ${credential}`)
+    const timeout = AbortSignal.timeout(15000)
+    const response = await fetch(path, {
+      ...init, headers, cache: 'no-store', redirect: 'error', credentials: 'omit',
+      signal: init.signal ? AbortSignal.any([init.signal, timeout]) : timeout,
+    })
+    if (response.status === 401 && generation.current === current && token.current === credential) {
+      generation.current++
+      token.current = null
+      verified.current = false
+      setUser(null)
+      setIsLoading(false)
+      clearSession()
+      setSessionError('Sua sessão expirou. Entre novamente.')
+    }
+    return response
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: user !== null, isLoading, sessionError, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: user !== null, isLoading, sessionError, login, logout, authenticatedFetch }}>
       {children}
     </AuthContext.Provider>
   )
