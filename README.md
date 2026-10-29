@@ -125,6 +125,93 @@ deve deixar de autenticar. Confira catálogo, links da loja e avanço do pedido
 fictício antes/depois de sair. Não há linter configurado; execute `npm test`,
 `npm run typecheck` e `npm run build` antes de publicar.
 
+### Login com Google (OAuth/OIDC)
+
+Esta extensão parte de `feat/secure-auth-login` / PR #4, commit `e10dae8`,
+confirmado diretamente no clone. A reconciliação ao final deste README descreve
+o histórico da entrega anterior de autenticação local, não a base desta extensão.
+
+O login local por e-mail/senha permanece disponível. Google é opcional: sem
+configuração, `/login` informa que está indisponível e não inicia o fluxo.
+Configuração parcial ou inválida também mantém Google indisponível. Falhas ao
+verificar disponibilidade não bloqueiam o formulário local.
+
+Configure **somente no servidor**, sem prefixo `VITE_`, as variáveis abaixo.
+`.env.example` contém exemplos sem segredos; injete os valores no ambiente do
+processo (secret manager em produção). Não assuma que `npm start` carrega `.env`
+automaticamente. Nunca comite `.env`, credenciais reais ou tokens.
+
+| Variável | Valor |
+| --- | --- |
+| `AUTH_ORIGIN` | Origem pública explícita, sem caminho/barra final; `http://localhost:5000` em dev, `https://loja.example.com` em produção. |
+| `GOOGLE_CLIENT_ID` | Client ID da credencial OAuth Google do tipo **Web application**. |
+| `GOOGLE_CLIENT_SECRET` | Segredo dessa credencial, apenas no servidor/secret manager. |
+| `GOOGLE_REDIRECT_URI` | **Exatamente** `AUTH_ORIGIN` + `/api/auth/google/callback`, sem parâmetros, fragmento ou barra final. |
+
+Exemplo dev: `http://localhost:5000/api/auth/google/callback`. Exemplo produção:
+`https://loja.example.com/api/auth/google/callback`. Produção exige HTTPS;
+HTTP é apenas para localhost em desenvolvimento. Host/porta diferentes exigem
+atualizar tanto `AUTH_ORIGIN` quanto o callback e o cadastro no Google.
+
+No Google Cloud Console:
+
+1. Crie/selecione um projeto e configure a tela de consentimento OAuth (Google
+   Auth Platform: branding, audience e data access), incluindo domínio autorizado
+   em produção e política de privacidade conforme exigido pelo Google.
+2. Crie uma credencial OAuth 2.0 **Web application**. Cadastre a URI de
+   redirecionamento exata acima em **Authorized redirect URIs**; origem JavaScript
+   não substitui callback. Este fluxo é server-side, sem SDK/token no navegador.
+3. Em modo de teste, adicione explicitamente os **test users** autorizados na
+   audiência/consentimento. Publicação/verificação deve seguir a política Google.
+4. Use somente os scopes `openid email profile`; não solicite acesso offline,
+   Drive, Gmail ou outras permissões. Guarde o secret fora de bundles e logs.
+
+Contratos da UI (cookies same-origin, `cache: no-store`):
+
+- `GET /api/auth/google/status` → `{ available: boolean }`, sem detalhes de
+  configuração ou segredos. Mesmas restrições de origem dos GETs de auth.
+- `POST /api/auth/google/start`, JSON estrito `{ returnTo }`, exige sessão
+  anônima/atual, `Origin` do navegador e `X-CSRF-Token` em memória; retorna
+  `{ authorizationUrl }`. A UI só navega para HTTPS em
+  `accounts.google.com/o/oauth2/v2/auth`, sem credenciais, portas alternativas ou
+  fragmentos. O retorno permite somente `/`, `/#colecao`, `/#pedidos`, `/#fluxo`.
+- `GET /api/auth/google/callback`: o servidor verifica o fluxo e redireciona ao
+  retorno seguro ou `/login?google=cancelled|error|unavailable`. A rota valida
+  esse enum e apresenta mensagens genéricas pt-BR, nunca conteúdo do provedor.
+
+O backend troca o código e valida a identidade antes de criar/rotacionar a
+sessão cookie/CSRF existente. **Não há tokens OAuth, senha, sessão ou CSRF em
+localStorage/sessionStorage**; tokens do provedor não são persistidos. Desabilite
+ou redija logs de URLs/query do callback (inclusive no proxy/APM): `code`,
+`state`, tokens e dados pessoais não devem aparecer em access logs, traces ou
+mensagens de erro. Limite acesso ao banco e mantenha backups/WAL/SHM protegidos.
+
+Política de identidade: **SEM autolink por e-mail**. A identidade social é fixa
+por `provider + sub`, nunca apenas pelo endereço de e-mail. Colisão com conta
+local é recusada, mesmo com e-mail Google verificado: não permite takeover nem
+vinculação silenciosa. Usuários sociais não têm senha local válida; não devem
+entrar pelo formulário de senha nem receber senha padrão. Vincular contas ou
+recuperar acesso requer um fluxo autenticado específico, fora desta entrega.
+O provisionamento local recusa uma conta que já possui identidade social, sem
+convertê-la silenciosamente em conta de senha.
+
+SQLite de auth é mantido separado do catálogo em `AUTH_DB_PATH`. A atualização
+do schema para identidades/fluxos OAuth ocorre no servidor ao abrir o banco;
+faça backup consistente antes do deploy, teste a migração de um banco existente
+isolado e não apague/resemeie usuários ou sessões. Continue com uma única
+instância por SQLite local, sem NFS/cluster.
+São criadas idempotentemente `auth_identities` (chave `provider, subject`,
+referência ao usuário) e `auth_google_flows`; o schema local existente é
+preservado. Contas sociais usam um marcador não válido como hash scrypt, sem
+senha utilizável. Fluxos de autorização expiram em 5 minutos; limites de start
+e callback são independentes dos limites do login local.
+
+Verificação determinística de frontend, sem rede Google:
+`npx vitest run src/routes/-login.test.tsx src/services/googleAuthService.test.ts src/services/authService.test.ts src/services/authStore.test.ts --reporter=dot`.
+Para validação real, use projeto/test user isolado: confira login, callback,
+restauração após reload, logout, cancelamento, config ausente e colisão com
+conta local; confirme a rotação de sessão e a ausência de segredos nos logs.
+
 ### Reconciliação com trabalhos paralelos
 
 A base desta entrega é `main` em `cd2812f`, sem autenticação ou checkout real.

@@ -4,24 +4,31 @@ import type { FormEvent } from 'react'
 import { ArrowLeft, ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../context/auth'
 import { safeReturnPath, SESSION_ERROR } from '../services/authService'
+import { googleAvailable, googleResult, startGoogleLogin, GOOGLE_CANCELLED, GOOGLE_ERROR, GOOGLE_UNAVAILABLE } from '../services/googleAuthService'
+import type { GoogleResult } from '../services/googleAuthService'
+
+export const validateLoginSearch = (search: Record<string, unknown>) => ({
+  returnTo: safeReturnPath(search.returnTo), google: googleResult(search.google),
+})
 
 export const Route = createFileRoute('/login')({
-  validateSearch: (search: Record<string, unknown>) => ({ returnTo: safeReturnPath(search.returnTo) }),
+  validateSearch: validateLoginSearch,
   head: () => ({ meta: [{ title: 'Entrar | COCKPIT STORE 360' }] }),
   component: LoginPage,
 })
 
 function LoginPage() {
-  const { returnTo } = Route.useSearch()
+  const { returnTo, google } = Route.useSearch()
   const navigate = useNavigate()
-  return <LoginScreen returnTo={returnTo} onAuthenticated={(path) => {
+  return <LoginScreen returnTo={returnTo} google={google} onAuthenticated={(path) => {
     const hash = path.split('#')[1]
     void navigate({ to: '/', hash, replace: true })
   }} />
 }
 
-export function LoginScreen({ returnTo = '/', onAuthenticated }: {
+export function LoginScreen({ returnTo = '/', google, onAuthenticated }: {
   returnTo?: string
+  google?: GoogleResult
   onAuthenticated: (path: string) => void
 }) {
   const { user, loading, pending, error, login, refresh } = useAuth()
@@ -32,7 +39,45 @@ export function LoginScreen({ returnTo = '/', onAuthenticated }: {
   const emailRef = useRef<HTMLInputElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
   const alertRef = useRef<HTMLDivElement>(null)
-  const busy = loading || pending !== null
+  const googleAlertRef = useRef<HTMLDivElement>(null)
+  const [hydrated, setHydrated] = useState(false)
+  const [googleStatus, setGoogleStatus] = useState<'pending' | 'available' | 'unavailable'>('pending')
+  const [googlePending, setGooglePending] = useState(false)
+  const [googleError, setGoogleError] = useState<string | null>(null)
+  const googleStarting = useRef(false)
+  const busy = loading || pending !== null || googlePending
+  const googleDisabled = !hydrated || busy || googleStatus !== 'available' || error === SESSION_ERROR
+  const googleMessage = googleError || (google === 'cancelled' ? GOOGLE_CANCELLED :
+    google === 'error' ? GOOGLE_ERROR : google === 'unavailable' ? GOOGLE_UNAVAILABLE : null)
+
+  useEffect(() => { setHydrated(true) }, [])
+  useEffect(() => {
+    if (loading || user) return
+    let active = true
+    setGoogleStatus('pending')
+    void googleAvailable().then((available) => {
+      if (active) setGoogleStatus(available ? 'available' : 'unavailable')
+    }).catch(() => { if (active) setGoogleStatus('unavailable') })
+    return () => { active = false }
+  }, [loading, user])
+
+  useEffect(() => {
+    if (googleMessage && hydrated && !busy) googleAlertRef.current?.focus()
+  }, [googleMessage, hydrated, busy])
+
+  async function continueWithGoogle() {
+    if (googleDisabled || googleStarting.current) return
+    googleStarting.current = true
+    setGooglePending(true)
+    setGoogleError(null)
+    try {
+      await startGoogleLogin(returnTo)
+    } catch {
+      setGoogleError(GOOGLE_ERROR)
+      setGooglePending(false)
+      googleStarting.current = false
+    }
+  }
 
   useEffect(() => {
     if (error && !loading && !pending) alertRef.current?.focus()
@@ -71,7 +116,7 @@ export function LoginScreen({ returnTo = '/', onAuthenticated }: {
         <div className="login-icon"><ShieldCheck size={24} aria-hidden="true" /></div>
         <div className="login-eyebrow">COCKPIT STORE 360</div>
         <h1 id="login-title">{user ? 'Você está conectado.' : 'Bem-vindo de volta.'}</h1>
-        <p className="login-intro">{user ? 'Sua sessão está ativa neste navegador.' : 'Entre com seu e-mail e senha para acessar sua conta.'}</p>
+        <p className="login-intro">{user ? 'Sua sessão está ativa neste navegador.' : 'Entre com Google ou com seu e-mail e senha para acessar sua conta.'}</p>
         {error && <div ref={alertRef} role="alert" tabIndex={-1} className="login-alert">
           {error}
           {!user && error === SESSION_ERROR && <button type="button" disabled={busy} onClick={() => void refresh()}>Verificar sessão novamente</button>}
@@ -80,7 +125,19 @@ export function LoginScreen({ returnTo = '/', onAuthenticated }: {
           <p><ShieldCheck size={18} aria-hidden="true" /> Conta conectada com segurança.</p>
           <a className="login-submit" href={safeReturnPath(returnTo)}>Continuar na loja <ArrowRight size={18} aria-hidden="true" /></a>
           <p className="login-note">Para encerrar sua sessão, use “Sair” no menu superior.</p>
-        </div> : <form onSubmit={submit} noValidate aria-busy={busy}>
+        </div> : <>
+          {googleMessage && <div ref={googleAlertRef} role="alert" tabIndex={-1} className="login-alert">{googleMessage}</div>}
+          <button className="login-google" type="button" disabled={googleDisabled} aria-busy={googlePending}
+            aria-describedby="google-status" onClick={() => void continueWithGoogle()}>
+            Continuar com Google
+          </button>
+          <p id="google-status" role="status" className="login-note">
+            {googlePending ? 'Redirecionando para o Google…' : loading ? 'Verificando sessão…' :
+              googleStatus === 'pending' ? 'Verificando disponibilidade do Google…' :
+                googleStatus === 'unavailable' ? GOOGLE_UNAVAILABLE : 'Continue com segurança na página do Google.'}
+          </p>
+          <div className="login-separator"><span>ou entre com e-mail</span></div>
+          <form onSubmit={submit} noValidate aria-busy={busy}>
           <label htmlFor="login-email">E-mail</label>
           <input ref={emailRef} id="login-email" type="email" name="email" autoComplete="username" inputMode="email"
             placeholder="seu@email.com" value={email} disabled={busy} required
@@ -104,8 +161,8 @@ export function LoginScreen({ returnTo = '/', onAuthenticated }: {
             {!busy && <ArrowRight size={18} aria-hidden="true" />}
           </button>
           <p role="status" className="login-note">{busy ? 'Aguarde um instante.' : 'Sua senha não é armazenada neste navegador.'}</p>
-        </form>}
-        <div className="login-demo-note">Ambiente demonstrativo. O catálogo e os pedidos exibidos na loja são fictícios. Use uma conta provisionada pelo administrador.</div>
+        </form></>}
+        <div className="login-demo-note">Ambiente demonstrativo. O catálogo e os pedidos exibidos na loja são fictícios. Use uma conta provisionada pelo administrador ou Google, quando disponível.</div>
         <a href="/#colecao" className="login-browse">Explorar o catálogo sem entrar <ArrowRight size={14} aria-hidden="true" /></a>
       </section>
     </div>

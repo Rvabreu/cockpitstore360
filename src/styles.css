@@ -93,7 +93,12 @@ body {
 .login-password button { position: absolute; right: 3px; top: 3px; height: 42px; width: 44px; display: grid; place-items: center; color: #b9bbc3; border-radius: 8px; }
 .login-submit { display: flex; width: 100%; justify-content: center; align-items: center; gap: 12px; min-height: 49px; margin-top: 28px; border-radius: 10px; background: #ff633b; color: #160c08; font-size: 14px; font-weight: 800; }
 .login-submit:hover:not(:disabled) { background: #ff875a; }
+.login-google { display: flex; width: 100%; justify-content: center; align-items: center; min-height: 49px; margin-top: 18px; border: 1px solid #a6a9b1; border-radius: 10px; background: #f7f7f8; color: #111316; font-size: 14px; font-weight: 750; }
+.login-google:hover:not(:disabled) { background: #dedfe3; }
+.login-separator { display: flex; align-items: center; gap: 12px; color: #b9bbc3; font-size: 12px; }
+.login-separator::before, .login-separator::after { content: ''; flex: 1; height: 1px; background: #3d4048; }
 .login-panel button:disabled, .login-panel input:disabled { opacity: .6; cursor: wait; }
+.login-panel .login-google:disabled { cursor: not-allowed; }
 .login-note { font-size: 11px; line-height: 1.6; text-align: center; color: #a6a9b1; margin: 13px 0 24px; }
 .login-demo-note { font-size: 11px; line-height: 1.7; color: #a6a9b1; border-top: 1px solid #2a2c31; padding-top: 20px; }
 .login-browse { display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 12px; color: #ffac90; margin-top: 20px; }
