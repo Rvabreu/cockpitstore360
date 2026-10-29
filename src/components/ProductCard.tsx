@@ -44,6 +44,7 @@ export default function ProductCard({ product }: { product: Product }) {
         <div className="text-[23px] font-extrabold tracking-[-.9px] mt-[15px]">
           {currencyFormatter.format(product.price)}
         </div>
+        <a href={`/checkout?produto=${encodeURIComponent(product.id)}`} className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[#ff875a55] bg-[#ff633b12] px-3 text-sm font-bold text-[#ffba9e] no-underline hover:bg-[#ff633b22] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#ff956f]">Comprar em USD com Stripe</a>
       </div>
     </article>
   )

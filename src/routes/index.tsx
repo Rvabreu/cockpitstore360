@@ -22,12 +22,15 @@ const FLOW_NODES: Array<{ marker: string; title: string; subtitle: string; highl
   { marker: '✓', title: 'Ciclo evolutivo', subtitle: 'Conhecimento para próxima demanda', highlight: true },
 ]
 
-function StorefrontPage() {
-  const { products, order, advanceOrder, getOrder } = useStore()
-  const [mode, setMode] = useState<Mode>('before')
+export function StorefrontPage() {
+  const { products, order, isLoaded, advanceOrder, getOrder } = useStore()
+  const [mode, setMode] = useState<Mode>('after')
   const [searchValue, setSearchValue] = useState('CS-2048')
   const [searchMsg, setSearchMsg] = useState('Ambiente demonstrativo com dados fictícios.')
   const [searchOk, setSearchOk] = useState(false)
+  const [isAdvancing, setIsAdvancing] = useState(false)
+  const [advanceMsg, setAdvanceMsg] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
 
   const isLastStep = order.currentStep >= order.events.length - 1
   const statusBadge = mode === 'before' ? 'Pedido confirmado' : order.statusLabel
@@ -36,16 +39,28 @@ function StorefrontPage() {
       ? 'Sem rastreio, o cliente depende do suporte. A equipe perde tempo respondendo à mesma pergunta.'
       : 'Agora o cliente consulta o próprio pedido. A linha do tempo comunica cada etapa com clareza.'
 
-  const handleAdvance = () => {
-    if (mode !== 'after') return
-    void advanceOrder('CS-2048')
+  const handleAdvance = async () => {
+    if (mode !== 'after' || isAdvancing || !isLoaded) return
+    setIsAdvancing(true)
+    setAdvanceMsg('')
+    try {
+      const updated = await advanceOrder(order.id)
+      setAdvanceMsg(`Status atualizado: ${updated.statusLabel}.`)
+    } catch {
+      setAdvanceMsg('Não foi possível atualizar o pedido. Tente novamente.')
+    } finally {
+      setIsAdvancing(false)
+    }
   }
 
   const handleSearch = async () => {
+    if (isSearching) return
+    setIsSearching(true)
     const value = normalizeOrderId(searchValue)
     const result = await getOrder(value)
     setSearchOk(result.ok)
     setSearchMsg(result.message)
+    setIsSearching(false)
   }
 
   const handleContact = () => {
@@ -135,18 +150,19 @@ function StorefrontPage() {
                 Da dúvida ao <span className="text-[#ff9c7a]">acompanhamento do pedido.</span>
               </h2>
               <p className="text-[#abaeb6] text-[14px] leading-[1.6] m-0 max-w-[670px]">
-                Compare a experiência original com a funcionalidade que será implementada pelo AI Cockpit.
+                Acompanhe cada etapa do pedido ou compare com a experiência anterior à melhoria.
               </p>
             </div>
             <div
-              className="flex items-center gap-[6px] border border-[#38393d] bg-[#15171a] p-[5px] rounded-[14px] w-max"
+              className="flex items-center gap-[6px] border border-[#38393d] bg-[#15171a] p-[5px] rounded-[14px] max-w-full w-max"
               role="group"
               aria-label="Selecionar estado da aplicação"
             >
               <button
                 type="button"
                 onClick={() => setMode('before')}
-                className={`border-0 rounded-[10px] px-4 py-[11px] text-[12px] font-extrabold ${
+                aria-pressed={mode === 'before'}
+                className={`border-0 rounded-[10px] px-2 min-[501px]:px-4 py-[11px] text-[12px] font-extrabold ${
                   mode === 'before' ? 'bg-white text-[#121212]' : 'bg-transparent text-[#b7b8be]'
                 }`}
               >
@@ -155,7 +171,8 @@ function StorefrontPage() {
               <button
                 type="button"
                 onClick={() => setMode('after')}
-                className={`border-0 rounded-[10px] px-4 py-[11px] text-[12px] font-extrabold ${
+                aria-pressed={mode === 'after'}
+                className={`border-0 rounded-[10px] px-2 min-[501px]:px-4 py-[11px] text-[12px] font-extrabold ${
                   mode === 'after' ? 'bg-white text-[#121212]' : 'bg-transparent text-[#b7b8be]'
                 }`}
               >
@@ -167,7 +184,7 @@ function StorefrontPage() {
           <div className="grid grid-cols-1 min-[851px]:grid-cols-[1.14fr_.86fr] gap-[19px] mt-[25px]">
             {/* Order card */}
             <div className="bg-[#131519] border border-[#2b2d33] rounded-[22px] p-[29px]">
-              <div className="flex justify-between items-start gap-[15px] pb-5 border-b border-[#34363a]">
+              <div className="flex flex-col min-[501px]:flex-row justify-between items-start gap-[15px] pb-5 border-b border-[#34363a]">
                 <div>
                   <div className="text-[#a4a6ae] text-[11px] font-extrabold uppercase tracking-[1.4px]">
                     SEUS PEDIDOS / DETALHES
@@ -262,24 +279,25 @@ function StorefrontPage() {
               </div>
 
               <div className="rounded-[17px] border border-[#34363b] p-[21px] mt-[17px] bg-[#1a1d20]">
-                <h4 className="m-0 mb-[9px] text-[14px]">🎛️ Simulador de operação</h4>
+                <h4 className="m-0 mb-[9px] text-[14px]">Simulador de operação</h4>
                 <p className="text-[#a4a7af] text-[12px] leading-[1.7]">
-                  Ative o estado “Depois da melhoria” e avance o pedido para demonstrar como a linha do tempo
-                  responde a novos eventos.
+                  Avance o pedido para demonstrar como a linha do tempo responde a novos eventos.
+                  Após a entrega, o próximo avanço reinicia a simulação.
                 </p>
                 <button
                   type="button"
                   onClick={handleAdvance}
-                  disabled={mode !== 'after'}
+                  disabled={mode !== 'after' || isAdvancing || !isLoaded}
                   className="w-full px-[18px] py-[13px] rounded-[12px] border border-[#ff633b] bg-[#ff633b] text-[#160c08] font-bold text-[13px] transition hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                 >
-                  {isLastStep ? 'Reiniciar simulação ↺' : 'Avançar status do pedido →'}
+                  {isAdvancing ? 'Atualizando pedido…' : isLastStep ? 'Reiniciar simulação ↺' : 'Avançar status do pedido →'}
                 </button>
+                <p role="status" className="text-[12px] text-[#a8abb2] leading-[1.7]">{advanceMsg}</p>
 
                 <div className="mt-[15px] text-[#a4a6ae] text-[11px] font-extrabold uppercase tracking-[1.4px]">
                   BUSCA POR PEDIDO
                 </div>
-                <div className="flex gap-2 mt-[13px]">
+                <form className="flex gap-2 mt-[13px]" onSubmit={(event) => { event.preventDefault(); void handleSearch() }}>
                   <input
                     aria-label="Número do pedido"
                     value={searchValue}
@@ -288,13 +306,13 @@ function StorefrontPage() {
                     className="w-full min-w-0 bg-[#101115] border border-[#393b3f] rounded-[10px] text-white p-3 text-[12px]"
                   />
                   <button
-                    type="button"
-                    onClick={handleSearch}
+                    type="submit"
+                    disabled={isSearching}
                     className="px-[15px] py-[11px] rounded-[12px] border border-[#474a51] bg-[#212327] text-white font-bold text-[13px] whitespace-nowrap transition hover:-translate-y-px"
                   >
-                    Buscar
+                    {isSearching ? 'Buscando…' : 'Buscar'}
                   </button>
-                </div>
+                </form>
                 <p
                   aria-live="polite"
                   className={`text-[12px] leading-[1.7] mt-3 ${searchOk ? 'text-[#64dfb0]' : 'text-[#a8abb2]'}`}

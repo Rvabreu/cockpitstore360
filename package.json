@@ -11,6 +11,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "node server.js",
+    "auth:provision": "node scripts/provision-user.ts",
     "test": "vitest run"
   },
   "dependencies": {
@@ -24,12 +25,14 @@
     "lucide-react": "^1.61.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "stripe": "^23.0.1",
     "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/devtools-vite": "0.8.5",
     "@tanstack/router-cli": "^1.132.0",
+    "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@types/better-sqlite3": "^9.6.0",
