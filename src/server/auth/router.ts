@@ -9,6 +9,10 @@ import { selectDashboardData, selectCheckoutProducts } from '../db.ts'
 import { normalizeCheckoutRequest } from '../checkout.ts'
 import type { CheckoutProduct } from '../../types/checkout.ts'
 import type { DashboardData } from '../../types/dashboard.ts'
+import { loadPaymentConfig, type PaymentConfig } from '../payments/config.ts'
+import { createStripeGateway, type PaymentGateway } from '../payments/gateway.ts'
+import { createPaymentService } from '../payments/service.ts'
+import { createPaymentsRouter } from '../payments/router.ts'
 
 function cookieValue(req: Request, name: string): string | undefined {
   const entries = (req.headers.cookie || '').split(';').map((entry) => entry.trim())
@@ -19,8 +23,10 @@ function cookieValue(req: Request, name: string): string | undefined {
   return /^[A-Za-z0-9_-]{43}$/.test(value) ? value : undefined
 }
 
-export function createAuthRouter({ config, store, now = Date.now, loadDashboard = () => buildDashboard(selectDashboardData()), loadCheckoutProducts = selectCheckoutProducts }: {
+export function createAuthRouter({ config, store, now = Date.now, loadDashboard = () => buildDashboard(selectDashboardData()), loadCheckoutProducts = selectCheckoutProducts,
+  paymentConfig = loadPaymentConfig(), paymentGateway = paymentConfig ? createStripeGateway(paymentConfig) : null, loadPaymentProducts = selectCheckoutProducts }: {
   config: AuthConfig; store: AuthStore; now?: () => number; loadDashboard?: () => DashboardData; loadCheckoutProducts?: (ids: string[]) => CheckoutProduct[]
+  paymentConfig?: PaymentConfig | null; paymentGateway?: PaymentGateway | null; loadPaymentProducts?: (ids: string[]) => CheckoutProduct[]
 }) {
   const router = express.Router()
   router.use((_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next() })
@@ -52,7 +58,7 @@ export function createAuthRouter({ config, store, now = Date.now, loadDashboard 
   router.use((req, res, next) => {
     if (req.method !== 'POST') return next()
     if (req.headers.origin !== config.origin) return unauthorized(res)
-    if (/^\/checkout\/?$/i.test(req.path) && !store.findUserSession(cookieValue(req, config.sessionCookieName), cookieValue(req, config.csrfCookieName))) {
+    if ((/^\/checkout\/?$/i.test(req.path) || /^\/payments(?:\/|$)/i.test(req.path)) && !store.findUserSession(cookieValue(req, config.sessionCookieName), cookieValue(req, config.csrfCookieName))) {
       return res.status(401).json({ error: 'Sessão não autenticada' })
     }
     if (/^\/register\/?$/i.test(req.path) && (req.headers.cookie || '').split(';')
@@ -67,6 +73,13 @@ export function createAuthRouter({ config, store, now = Date.now, loadDashboard 
     next()
   })
   router.use(express.json({ limit: '4kb', strict: false }))
+  router.use('/payments',(req,res,next)=>{if(req.get('Sec-Fetch-Site')==='cross-site'||(req.headers.origin!==undefined&&req.headers.origin!==config.origin))return unauthorized(res);next()},createPaymentsRouter({
+    service:createPaymentService({config:paymentConfig,store,gateway:paymentGateway,loadProducts:loadPaymentProducts,now}),
+    authenticate:req=>store.findUserSession(cookieValue(req,config.sessionCookieName),cookieValue(req,config.csrfCookieName)),
+    authorize:req=>req.headers.origin===config.origin,
+    consume:(req,email)=>store.consumeAttempt(req.socket.remoteAddress||'desconhecido',email),
+    credentials:req=>({sessionToken:cookieValue(req,config.sessionCookieName)!,csrfCookie:cookieValue(req,config.csrfCookieName)!}),
+  }))
 
   router.post('/checkout', (req, res) => {
     const request = normalizeCheckoutRequest(req.body)

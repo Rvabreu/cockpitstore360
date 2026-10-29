@@ -5,6 +5,9 @@ import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } fr
 import { loadAuthConfig, type AuthConfig } from './auth/config.ts'
 import { createAuthStore, type AuthStore } from './auth/db.ts'
 import { createAuthRouter } from './auth/router.ts'
+import { loadPaymentConfig, type PaymentConfig } from './payments/config.ts'
+import { createStripeGateway, type PaymentGateway } from './payments/gateway.ts'
+import { createWebhookRouter } from './payments/webhook.ts'
 
 const NOT_FOUND_MESSAGE = 'Pedido não encontrado'
 
@@ -33,14 +36,23 @@ function normalizeId(raw: string): string {
   return /^\d+$/.test(value) ? `CS-${value}` : value
 }
 
-export function createApiRouter(options: { mode?: AuthConfig['mode']; env?: Record<string, string | undefined>; store?: AuthStore; now?: () => number } = {}) {
+export function createApiRouter(options: { mode?: AuthConfig['mode']; env?: Record<string, string | undefined>; store?: AuthStore; now?: () => number; paymentConfig?: PaymentConfig|null; paymentGateway?: PaymentGateway|null } = {}) {
   const router = express.Router()
   const config = loadAuthConfig({ mode: options.mode || 'development', env: options.env })
+  const paymentConfig = options.paymentConfig === undefined ? loadPaymentConfig({env:options.env}) : options.paymentConfig
+  const paymentGateway = options.paymentGateway === undefined ? paymentConfig ? createStripeGateway(paymentConfig) : null : options.paymentGateway
+  let store: AuthStore | undefined = options.store
+  const getStore = () => store ??= createAuthStore({path:options.env?.AUTH_DB_PATH || process.env.AUTH_DB_PATH,now:options.now})
+  let webhook: ReturnType<typeof createWebhookRouter> | undefined
+  router.use('/stripe/webhook',(req,res,next)=>{
+    if(!paymentConfig||!paymentGateway){res.setHeader('Cache-Control','no-store');return res.status(503).json({error:'Pagamentos indisponíveis'})}
+    webhook ??= createWebhookRouter({config:paymentConfig,store:getStore(),gateway:paymentGateway});webhook(req,res,next)
+  })
   // Auth has its own parser and limits, and does not share the resettable tracking database.
   let auth: ReturnType<typeof createAuthRouter> | undefined
   router.use('/auth', (req, res, next) => {
     res.setHeader('Cache-Control', 'no-store')
-    auth ??= createAuthRouter({ config, store: options.store || createAuthStore({ path: options.env?.AUTH_DB_PATH || process.env.AUTH_DB_PATH, now: options.now }), now: options.now })
+    auth ??= createAuthRouter({ config, store: getStore(), now: options.now, paymentConfig, paymentGateway })
     auth(req, res, next)
   })
   router.use(express.json())

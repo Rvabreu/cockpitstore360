@@ -3,6 +3,7 @@ import { randomBytes, randomUUID, createHash } from 'node:crypto'
 import fs from 'node:fs'
 import pathModule from 'node:path'
 import type { CheckoutProduct, CheckoutReceipt, CheckoutRequest } from '../../types/checkout.ts'
+import type { PaymentOrder, PaymentStatus } from '../../types/payment.ts'
 import { buildCheckoutReceipt, normalizeCheckoutRequest } from '../checkout.ts'
 import { AuthCapacityError, hashPassword, isValidPassword, isValidRegistrationPassword, normalizeEmail, verifyPassword } from './password.ts'
 
@@ -16,6 +17,7 @@ export type AuthUser = { id: string; email: string }
 type UserRecord = AuthUser & { salt: string; hash: string }
 type Bootstrap = { cookie_hash: string; expires_at: number }
 type Session = { token_hash: string; user_id: string; csrf_hash: string; expires_at: number }
+export interface PaymentRow { id: string; user_id: string; idempotency_key: string; request_hash: string; snapshot_json: string; gateway_params_json: string; total_cents: number; mode: 'test' | 'live'; status: PaymentStatus; created_at: number; expires_at: number; create_deadline_at: number; stripe_session_id: string | null; checkout_url: string | null }
 
 export function createAuthStore({ path = pathModule.resolve('data/auth.db'), now = Date.now }: {
   path?: string; now?: () => number
@@ -50,6 +52,13 @@ export function createAuthStore({ path = pathModule.resolve('data/auth.db'), now
       UNIQUE(user_id, idempotency_key)
     );
     CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires_at);
+    CREATE TABLE IF NOT EXISTS payment_orders (
+      id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),idempotency_key TEXT NOT NULL,request_hash TEXT NOT NULL,
+      snapshot_json TEXT NOT NULL,gateway_params_json TEXT NOT NULL,total_cents INTEGER NOT NULL,mode TEXT NOT NULL,status TEXT NOT NULL,
+      created_at INTEGER NOT NULL,expires_at INTEGER NOT NULL,create_deadline_at INTEGER NOT NULL,
+      stripe_session_id TEXT UNIQUE,checkout_url TEXT,UNIQUE(user_id,idempotency_key)
+    );
+    CREATE TABLE IF NOT EXISTS payment_events (event_id TEXT PRIMARY KEY,order_id TEXT NOT NULL REFERENCES payment_orders(id),type TEXT NOT NULL,processed_at INTEGER NOT NULL);
     CREATE INDEX IF NOT EXISTS csrf_expiry ON csrf_bootstraps(expires_at);
     CREATE INDEX IF NOT EXISTS limits_expiry ON login_limits(expires_at);
   `)
@@ -80,6 +89,47 @@ export function createAuthStore({ path = pathModule.resolve('data/auth.db'), now
   return {
     db,
     close() { db.close() },
+    preparePayment({ sessionToken, csrfCookie, request, mode, origin, loadItems }: {
+      sessionToken: string; csrfCookie: string; request: CheckoutRequest; mode: 'test' | 'live'; origin: string; loadItems: () => PaymentOrder['items'] | null
+    }) {
+      return db.transaction(() => {
+        const user = this.findUserSession(sessionToken, csrfCookie)
+        if (!user) return { status: 'unauthorized' as const }
+        const hash = digest(JSON.stringify(request.items))
+        const previous = db.prepare('SELECT * FROM payment_orders WHERE user_id=? AND idempotency_key=?').get(user.id, request.idempotencyKey) as PaymentRow | undefined
+        if (previous) return previous.request_hash === hash ? { status: 'ready' as const, row: previous, created: false } : { status: 'conflict' as const }
+        if ((db.prepare('SELECT COUNT(*) AS n FROM payment_orders').get() as { n: number }).n >= 10000) throw new AuthCapacityError()
+        const items = loadItems()
+        if (!items) return { status: 'conflict' as const }
+        const timestamp = now(), id = randomUUID()
+        const order: PaymentOrder = { id, items, totalCents: items.reduce((s, i) => s + i.lineTotalCents, 0), currency: 'USD', status: 'pending', createdAt: new Date(timestamp).toISOString() }
+        const expiresAt = Math.floor(timestamp / 1000) + 3600
+        const params = {orderId:id,items:items.map(i=>({name:i.name,quantity:i.quantity,unitPriceCents:i.unitPriceCents})),idempotencyKey:`checkout:${id}`,expiresAt,
+          successUrl:`${origin}/checkout?pedido=${id}&retorno=sucesso`,cancelUrl:`${origin}/checkout?pedido=${id}&retorno=cancelado`}
+        db.prepare('INSERT INTO payment_orders(id,user_id,idempotency_key,request_hash,snapshot_json,gateway_params_json,total_cents,mode,status,created_at,expires_at,create_deadline_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)')
+          .run(id, user.id, request.idempotencyKey, hash, JSON.stringify(order), JSON.stringify(params), order.totalCents, mode, 'pending', timestamp, expiresAt, timestamp + 25 * 60000)
+        return { status: 'ready' as const, row: db.prepare('SELECT * FROM payment_orders WHERE id=?').get(id) as PaymentRow, created: true }
+      }).immediate()
+    },
+    findPayment(id: string) { return db.prepare('SELECT * FROM payment_orders WHERE id=?').get(id) as PaymentRow | undefined },
+    findOwnedPayment(id: string, userId: string) { return db.prepare('SELECT * FROM payment_orders WHERE id=? AND user_id=?').get(id, userId) as PaymentRow | undefined },
+    attachStripeSession(id: string, sessionId: string, url: string | null) {
+      db.transaction(() => {
+        const row = this.findPayment(id)
+        if (!row || (row.stripe_session_id && row.stripe_session_id !== sessionId)) throw new Error('Sessão de pagamento inválida')
+        db.prepare('UPDATE payment_orders SET stripe_session_id=?,checkout_url=? WHERE id=?').run(sessionId, url, id)
+      }).immediate()
+    },
+    applyPaymentEvent({ eventId, orderId, type, status, sessionId }: { eventId: string; orderId: string; type: string; status: PaymentStatus; sessionId: string }) {
+      db.transaction(() => {
+        if (db.prepare('SELECT 1 FROM payment_events WHERE event_id=?').get(eventId)) return
+        const row = this.findPayment(orderId)
+        if (!row || (row.stripe_session_id && row.stripe_session_id !== sessionId)) throw new Error('Sessão de pagamento inválida')
+        const next = row.status === 'paid' ? 'paid' : status === 'pending' ? row.status : status
+        db.prepare('UPDATE payment_orders SET stripe_session_id=?,status=? WHERE id=?').run(sessionId, next, orderId)
+        db.prepare('INSERT INTO payment_events VALUES(?,?,?,?)').run(eventId, orderId, type, now())
+      }).immediate()
+    },
     createCheckout({ token, csrfCookie, request, loadProducts }: {
       token: string; csrfCookie: string; request: CheckoutRequest; loadProducts: (ids: string[]) => CheckoutProduct[]
     }): { created: boolean; receipt: CheckoutReceipt } | 'unauthorized' | 'conflict' {

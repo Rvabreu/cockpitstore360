@@ -1,5 +1,7 @@
 import type { CheckoutRequest, CheckoutReceipt } from '../types/checkout'
 import { isCheckoutReceipt } from './checkoutService'
+import type { PaymentCheckoutResult } from '../types/payment'
+import { isPaymentCheckoutResult } from './paymentsService'
 
 export interface AuthUser {
   id: string
@@ -24,10 +26,11 @@ export class AuthError extends Error {
   recoveryFailed = false
   recoveredSession?: AuthSession
 
-  constructor(status: number, context: 'login' | 'register' | 'checkout' = 'login') {
-    super(context === 'checkout' && status === 400 ? 'Dados de checkout inválidos'
-      : context === 'checkout' && status === 401 ? 'Sessão não autenticada'
-      : context === 'checkout' && status === 409 ? 'Não foi possível concluir com os dados informados'
+  constructor(status: number, context: 'login' | 'register' | 'checkout' | 'payment' = 'login') {
+    super(context === 'payment' && status === 503 ? 'Não foi possível iniciar o pagamento. Verifique a configuração do Stripe ou tente novamente.'
+      : (context === 'checkout' || context === 'payment') && status === 400 ? 'Dados de checkout inválidos'
+      : (context === 'checkout' || context === 'payment') && status === 401 ? 'Sessão não autenticada'
+      : (context === 'checkout' || context === 'payment') && status === 409 ? 'Não foi possível concluir com os dados informados'
       : context === 'register' && status === 400 ? 'Dados de cadastro inválidos'
       : context === 'register' && status === 409 ? 'Não foi possível cadastrar com os dados informados'
         : ERROR_MESSAGES[status] ?? GENERIC_ERROR)
@@ -69,9 +72,10 @@ async function request(path: string, options: RequestInit): Promise<unknown> {
       credentials: 'same-origin',
       cache: 'no-store',
     })
-    if (!response.ok) throw new AuthError(response.status, path === 'checkout' ? 'checkout' : path === 'register' ? 'register' : 'login')
+    if (!response.ok) throw new AuthError(response.status, path === 'payments/checkout' ? 'payment' : path === 'checkout' ? 'checkout' : path === 'register' ? 'register' : 'login')
     if (path === 'register' && response.status !== 201) throw new AuthError(0)
     if (path === 'checkout' && response.status !== 200 && response.status !== 201) throw new AuthError(0)
+    if (path === 'payments/checkout' && response.status !== 200 && response.status !== 201) throw new AuthError(0)
     return await response.json()
   } catch (error) {
     if (error instanceof AuthError) throw error
@@ -103,7 +107,7 @@ export function createAuthService() {
     }
   }
 
-  async function post(path: 'login' | 'logout' | 'register' | 'checkout', body: string): Promise<unknown> {
+  async function post(path: 'login' | 'logout' | 'register' | 'checkout' | 'payments/checkout', body: string): Promise<unknown> {
     if (!csrfToken) throw new AuthError(0)
     // A bootstrap requested after this mutation must run after it, rather than
     // join an earlier GET whose response predates cookie rotation.
@@ -122,6 +126,8 @@ export function createAuthService() {
           if (!isCreated(value)) throw new AuthError(0)
         } else if (path === 'checkout') {
           if (!isReceiptResponse(value)) throw new AuthError(0)
+        } else if (path === 'payments/checkout') {
+          if (!isPaymentCheckoutResult(value)) throw new AuthError(0)
         } else {
           if (!value || typeof value !== 'object' || (value as Record<string, unknown>).user !== null) {
             throw new AuthError(0)
@@ -141,6 +147,11 @@ export function createAuthService() {
 
   return {
     bootstrap,
+    async createPayment(payload: CheckoutRequest): Promise<PaymentCheckoutResult> {
+      const value = await post('payments/checkout', JSON.stringify(payload))
+      if (!isPaymentCheckoutResult(value)) throw new AuthError(0)
+      return value
+    },
     async checkout(payload: CheckoutRequest): Promise<{ receipt: CheckoutReceipt }> {
       const value = await post('checkout', JSON.stringify(payload))
       if (!isReceiptResponse(value) || value.receipt.items.length !== payload.items.length

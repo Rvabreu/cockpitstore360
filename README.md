@@ -110,36 +110,63 @@ before reading the demo tracking database.
 Any registered or provisioned account sees the same demonstrative operational data. This is
 not an administrator role system or authorization for private customer orders.
 
-## Checkout simulation
+## Stripe checkout in USD
 
-Open `/checkout` or select **Comprar (simulação)** on a product. The cart supports
-multiple live catalog products and quantities from 1 to 10 per item. Sign in
-before confirming; the cart remains in memory and is not restored from storage.
-Review the estimate before selecting **Concluir simulação**.
-The interface separates cart, review and receipt with an accessible step indicator,
-product cards and a highlighted summary that stays visible on desktop. On small
-screens, the sections stack without hiding the simulation notices. An empty cart
-links back to the store catalog.
+Open `/checkout` or select a product's checkout link. Sign in to load the protected
+USD catalog, build a cart and select **Pagar com Stripe**. The application redirects
+to Stripe Hosted Checkout; card details are not collected by this site. The cart
+remains in memory. The BRL storefront and demo dashboard are not automatically
+converted to USD: checkout prices must be configured explicitly in USD cents.
 
-This is not a payment integration: no money is charged, stock is not reserved,
-and no delivery is scheduled. Card details, CPF and addresses are not collected.
-The result is a simulation receipt, not a paid order or fiscal invoice.
+Configure the following **server-side environment variables**, never in Git or a
+client bundle:
 
-`POST /api/auth/checkout` accepts only `items` (product IDs and quantities) and a
-UUID-v4 `idempotencyKey`. The server verifies session, CSRF and exact Origin,
-calculates prices in cents from SQLite and persists a receipt in `auth.db` owned
-by the account. New receipts return 201; replay of the same key and canonical
-payload returns 200 with the original receipt, even if catalog prices changed.
-Reusing a key with different items returns 409. Receipt storage is limited to
-10,000 entries; existing replays remain valid at capacity.
+- `STRIPE_SECRET_KEY`: begin with a Stripe test-mode secret key.
+- `STRIPE_WEBHOOK_SECRET`: the signing secret for this environment's webhook.
+- `STRIPE_USD_PRICES_JSON`: JSON object mapping existing product IDs to positive
+  integer USD cent amounts. Set your own prices; there is no assumed FX rate or
+  fallback price. Products without a configured USD price are not purchasable.
+- `STRIPE_ALLOW_LIVE=true`: explicit opt-in required for a live-mode secret key.
+- `APP_ORIGIN`: the externally served HTTPS application origin.
 
-Network or server failures may leave confirmation uncertain. A manual retry uses
-the same key and item snapshot for the same account; editing the cart starts a
-new attempt with an uncertainty warning. Do not interpret an error as proof that
-no receipt was created. No automatic POST retries are performed.
+No Stripe configuration leaves payments unavailable (503), not simulated. Partial
+or invalid configuration fails startup. Test mode is labeled explicitly and does
+not charge real money; live payments require the merchant's activated Stripe
+account, live keys, HTTPS and a correctly configured live webhook.
 
-Simulation receipts do not enter the public tracking dataset or dashboard.
-There is no receipt history endpoint, shipping service or payment gateway.
+Configure Stripe to deliver checkout session completion, asynchronous payment
+success/failure and expiration events to `POST /api/stripe/webhook`. This route
+receives the raw body and verifies Stripe's signature. Use the matching webhook
+secret for test or live mode. Expose the HTTPS endpoint to Stripe and verify delivery
+and retries before enabling live payments.
+
+Payment endpoints, all private and `no-store`:
+
+- `GET /api/auth/payments/catalog`: configured USD products and test/live mode.
+- `POST /api/auth/payments/checkout`: strict product IDs, quantities and UUID-v4
+  idempotency key; session, Origin and CSRF required. Prices come from the server.
+- `GET /api/auth/payments/orders/:id`: order status and immutable amounts, only for
+  the owning account. Other accounts receive not-found.
+
+Orders are stored separately in `auth.db`, not in the public tracking/dashboard.
+Retries preserve the original account, item snapshot, Stripe parameters and key.
+An uncertain network result is not evidence that no Checkout Session was created.
+Do not create a fresh attempt unless you understand that another session may exist.
+
+The return URL never proves payment. Only a validated Stripe webhook, corroborated
+against the authoritative session and stored order, can mark payment confirmed.
+The UI polls pending status for a bounded interval and then offers manual refresh.
+Returning from cancellation does not mean the payment was canceled or failed.
+
+Before launch, complete a real Stripe test-mode checkout, confirm the signed webhook
+updates the owned order, verify duplicate/replayed events do not duplicate payment,
+and exercise asynchronous/failed payments. Automated gateway fixtures are not proof
+that a merchant account or production webhook is operational.
+
+This integration does not reserve stock, schedule delivery, calculate tax or issue
+fiscal invoices. Previous simulated receipts remain private historical data; the
+legacy `POST /api/auth/checkout` simulation API does not move money and is not used
+by the Stripe checkout interface.
 
 ## API
 

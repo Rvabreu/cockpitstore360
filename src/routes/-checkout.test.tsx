@@ -10,7 +10,7 @@ vi.mock('@tanstack/react-router', () => ({
   useLocation: () => ({ searchStr: state.searchStr }),
 }))
 vi.mock('../components/CheckoutPage', () => ({
-  default: (props: { initialProductId?: string; invalidInitialSelection?: boolean }) =>
+  default: (props: { initialProductId?: string; invalidInitialSelection?: boolean; initialOrderId?: string; returnStatus?: string }) =>
     <output data-testid="checkout-props">{JSON.stringify(props)}</output>,
 }))
 import { Route } from './checkout'
@@ -44,4 +44,20 @@ it.each([null, 42, ['classic-tee', 'other'], '', ' classic-tee ', 'bad\nproduct'
 
 it('query duplicada ativa guarda no componente mesmo com produto parseado válido', () => {
   expect(props({ produto: 'classic-tee' }, '?produto=classic-tee&produto=other')).toEqual({ initialProductId: 'classic-tee', invalidInitialSelection: true })
+})
+
+const ORDER = '22222222-2222-4222-8222-222222222222'
+it.each(['sucesso', 'cancelado'])('pedido/retorno%s públicos não serializam props internas nem paid', (retorno) => {
+  expect(validateSearch({ pedido: ORDER, retorno, initialOrderId: 'injected', status: 'paid' })).toEqual({ pedido: ORDER, retorno })
+  expect(props({ pedido: ORDER, retorno }, `?pedido=${ORDER}&retorno=${retorno}`)).toEqual({ initialOrderId: ORDER, returnStatus: retorno, invalidInitialSelection: false })
+})
+it.each([null, 42, '', 'not-uuid', [ORDER, ORDER]])('pedido inválido%j explícito nunca normaliza para outro', (pedido) => {
+  expect(validateSearch({ pedido, retorno: 'sucesso' })).toEqual({ pedido, retorno: 'sucesso' })
+  expect(props({ pedido, retorno: 'sucesso' }, '?pedido=bad&retorno=sucesso')).toMatchObject({ invalidInitialSelection: true })
+})
+it.each([`?pedido=${ORDER}&pedido=${ORDER}`, `?pedido=${ORDER}&retorno=sucesso&retorno=cancelado`])('duplicate%s inválido mesmo parserselecionando válido', (raw) => {
+  expect(props({ pedido: ORDER, retorno: 'sucesso' }, raw)).toMatchObject({ invalidInitialSelection: true })
+})
+it.each([{ retorno: 'sucesso' }, { pedido: ORDER, retorno: 'paid' }, { pedido: ORDER, retorno: ['sucesso'] }])('retorno%j não aceita confirmaçãoURL/semownedid', (search) => {
+  expect(props(search, '?retorno=bad')).toMatchObject({ invalidInitialSelection: true })
 })

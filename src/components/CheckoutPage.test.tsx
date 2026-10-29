@@ -2,228 +2,81 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { renderToString } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import CheckoutPage from './CheckoutPage'
+import * as payments from '../services/paymentsService'
+const USER={id:'u1',email:'qa@example.com'}
+const ID='22222222-2222-4222-8222-222222222222'
+const CATALOG={currency:'USD',mode:'test',products:[{id:'a',name:'Produto A',unitPriceCents:1234},{id:'b',name:'Produto B',unitPriceCents:500}]}
+const ORDER={id:ID,items:[{productId:'a',name:'Produto A',quantity:2,unitPriceCents:1234,lineTotalCents:2468}],totalCents:2468,currency:'USD',status:'pending',createdAt:'2026-10-29T12:00:00.000Z'}
+const RESULT={orderId:ID,status:'pending',checkoutUrl:'https://checkout.stripe.com/c/pay/cs_test_fixture'}
+function json(value:unknown,status=200){return new Response(JSON.stringify(value),{status})}
+function session(user:typeof USER|null=USER){return json({user,csrfToken:'csrf'})}
+function deferred(){let resolve!:(r:Response)=>void;const promise=new Promise<Response>(done=>{resolve=done});return {promise,resolve,fetch:()=>promise}}
+beforeEach(()=>{vi.restoreAllMocks();vi.stubGlobal('fetch',vi.fn());vi.spyOn(payments,'redirectToStripe').mockImplementation(()=>{});vi.mocked(fetch).mockResolvedValueOnce(session()).mockResolvedValueOnce(json(CATALOG))})
+afterEach(()=>{cleanup();vi.useRealTimers();vi.unstubAllGlobals();vi.restoreAllMocks()})
+async function ready(props:Parameters<typeof CheckoutPage>[0]={initialProductId:'a'}){const view=render(<CheckoutPage {...props}/>);await waitFor(()=>expect(screen.getByLabelText('Produto para adicionar')).toBeEnabled());return view}
+function review(){fireEvent.click(screen.getByRole('button',{name:'Revisar pedido'}))}
+function pay(){fireEvent.click(screen.getByRole('button',{name:'Pagar com Stripe'}))}
+const posts=()=>vi.mocked(fetch).mock.calls.filter(([,o])=>o?.method==='POST')
 
-const USER = { id: 'user', email: 'qa@example.com' }
-const PRODUCTS = [{ id: 'a', name: 'Produto A', price: 12.34 }, { id: 'b', name: 'Produto B', price: 20 }]
-const RECEIPT = { id: '22222222-2222-4222-8222-222222222222', items: [{ productId: 'a', name: 'Produto A', quantity: 1, unitPriceCents: 1500, lineTotalCents: 1500 }], totalCents: 1500, currency: 'BRL', paymentStatus: 'simulated', createdAt: '2026-10-29T12:00:00.000Z' }
-function json(value: unknown, status = 200) { return new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } }) }
-async function ready(user: typeof USER | null = USER, props: { initialProductId?: string; invalidInitialSelection?: boolean } = { initialProductId: 'a' }) {
-  vi.mocked(fetch).mockImplementation(async (url) => {
-    if (url === '/api/auth/session') return json({ user, csrfToken: 'token' })
-    if (url === '/api/products') return json(PRODUCTS)
-    throw new Error(`Unexpected request ${String(url)}`)
-  })
-  const view = render(<CheckoutPage {...props} />)
-  await screen.findByRole('combobox', { name: 'Produto para adicionar' })
-  await waitFor(() => expect(screen.getByRole('combobox', { name: 'Produto para adicionar' })).toBeEnabled())
-  return view
-}
-async function conclude() {
-  fireEvent.click(screen.getByRole('button', { name: 'Revisar pedido' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Concluir simulação' }))
-  await waitFor(() => expect(posts().length).toBe(1))
-}
-function posts() { return vi.mocked(fetch).mock.calls.filter(([url]) => url === '/api/auth/checkout') }
-beforeEach(() => { vi.restoreAllMocks(); vi.stubGlobal('fetch', vi.fn()) })
-afterEach(() => { cleanup(); vi.unstubAllGlobals() })
-
-it('SSR loading determinístico sem request/random/cartfallback/PII', () => {
-  const html = renderToString(<CheckoutPage initialProductId="a" />)
-  expect(renderToString(<CheckoutPage initialProductId="a" />)).toBe(html)
-  const container = document.createElement('div'); container.innerHTML = html
-  expect(within(container).getByRole('heading', { level: 1, name: 'Finalizar compra' })).toHaveTextContent('Finalizar compra')
-  expect(fetch).not.toHaveBeenCalled()
-  expect(container.querySelector('input[name],input[type=password]')).toBeNull()
-  expect(html).not.toMatch(/CPF|número do cartão|endereço de entrega/i)
+it('SSRloading semrequests/formnames/PIIinputs nem seed',()=>{
+  const html=renderToString(<CheckoutPage/>);expect(html).toContain('Verificando sessão');expect(html).toContain('Finalizar compra');expect(html).not.toMatch(/name="|type="(?:password|email)"|classic-tee|Produto A/);expect(fetch).not.toHaveBeenCalled()
 })
-
-it('anônimo edita catálogo real mas requer login para concluir, sem POST/PII/storage', async () => {
-  const get = vi.spyOn(Storage.prototype, 'getItem'); const set = vi.spyOn(Storage.prototype, 'setItem')
-  await ready(null)
-  expect(screen.getByRole('spinbutton', { name: 'Quantidade de Produto A' })).toHaveValue(1)
-  expect(screen.getByRole('link', { name: 'Entrar para concluir' })).toHaveAttribute('href', '/login')
-  expect(screen.queryByRole('button', { name: 'Concluir simulação' })).not.toBeInTheDocument()
-  expect(posts()).toHaveLength(0)
-  expect(get).not.toHaveBeenCalled(); expect(set).not.toHaveBeenCalled()
+it('anon exige login antes catálogo/preços/querycart',async()=>{
+  vi.mocked(fetch).mockReset().mockResolvedValueOnce(session(null));render(<CheckoutPage initialProductId="a"/>);
+  expect(await screen.findByRole('link',{name:'Entrar para pagar'})).toHaveAttribute('href','/login');expect(fetch).toHaveBeenCalledTimes(1);expect(screen.queryByLabelText('Produto para adicionar')).not.toBeInTheDocument()
 })
-
-it.each([{ initialProductId: 'unknown' }, { invalidInitialSelection: true }])('query inválida%j não insere produto fallback', async (props) => {
-  await ready(USER, props)
-  expect(await screen.findByText('Seleção de produto inválida.')).toBeInTheDocument()
-  expect(screen.getByText('Seu carrinho está vazio.')).toBeInTheDocument()
-  expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
+it.each([503,500])('catálogo%s indisponível sem fallback/simulação;retry sóGET',async(status)=>{
+  vi.mocked(fetch).mockReset().mockResolvedValueOnce(session()).mockResolvedValueOnce(json({},status)).mockResolvedValueOnce(session()).mockResolvedValueOnce(json(CATALOG));render(<CheckoutPage initialProductId="a"/>);
+  expect(await screen.findByRole('alert')).toBeInTheDocument();expect(screen.queryByLabelText('Quantidade de Produto A')).not.toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Tentar novamente'}));await screen.findByLabelText('Quantidade de Produto A');expect(posts()).toHaveLength(0)
 })
-
-it('quantidade/add/remove mantém itens atuais e carrinho vazio não conclui', async () => {
-  await ready()
-  fireEvent.change(screen.getByRole('spinbutton', { name: 'Quantidade de Produto A' }), { target: { value: '2' } })
-  expect(screen.getByRole('spinbutton', { name: 'Quantidade de Produto A' })).toHaveValue(2)
-  fireEvent.change(screen.getByRole('combobox', { name: 'Produto para adicionar' }), { target: { value: 'b' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Adicionar produto' }))
-  expect(screen.getByRole('spinbutton', { name: 'Quantidade de Produto B' })).toHaveValue(1)
-  fireEvent.click(screen.getByRole('button', { name: 'Remover Produto A' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Remover Produto B' }))
-  expect(screen.getByText('Seu carrinho está vazio.')).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Revisar pedido' })).toBeDisabled()
-  expect(posts()).toHaveLength(0)
+it('liveUSDcart query/qty/remove/emptycta/reviewback preserva e nenhum storage',async()=>{
+  const get=vi.spyOn(Storage.prototype,'getItem'),set=vi.spyOn(Storage.prototype,'setItem'),log=vi.spyOn(console,'log').mockImplementation(()=>{});await ready();expect(screen.getByText('Modo de teste: nenhum valor real é cobrado.')).toBeInTheDocument();expect(document.body.textContent).toMatch(/12,34.*USD/);expect(document.body.textContent).not.toMatch(/R\$/)
+  fireEvent.change(screen.getByLabelText('Quantidade de Produto A'),{target:{value:'11'}});expect(screen.getByRole('alert')).toHaveTextContent('Informe uma quantidade entre 1 e 10.');fireEvent.change(screen.getByLabelText('Quantidade de Produto A'),{target:{value:'3'}});review();fireEvent.click(screen.getByRole('button',{name:'Editar carrinho'}));expect(screen.getByLabelText('Quantidade de Produto A')).toHaveValue(3)
+  fireEvent.click(screen.getByRole('button',{name:'Remover Produto A'}));expect(screen.getByRole('link',{name:'Explorar catálogo'})).toHaveAttribute('href','/#colecao');expect(screen.getByRole('button',{name:'Revisar pedido'})).toBeDisabled();expect(posts()).toHaveLength(0);expect(get).not.toHaveBeenCalled();expect(set).not.toHaveBeenCalled();expect(log).not.toHaveBeenCalled()
 })
-
-it('pendingdouble umPOST/sucesso sóreceipt confirmado com preço atualizado sem cobrança/storage/log', async () => {
-  const get = vi.spyOn(Storage.prototype, 'getItem'); const set = vi.spyOn(Storage.prototype, 'setItem')
-  const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-  await ready()
-  let resolve!: (response: Response) => void
-  vi.mocked(fetch).mockReturnValueOnce(new Promise<Response>((done) => { resolve = done }))
-  fireEvent.click(screen.getByRole('button', { name: 'Revisar pedido' }))
-  const submit = screen.getByRole('button', { name: 'Concluir simulação' })
-  fireEvent.click(submit); fireEvent.click(submit)
-  await waitFor(() => expect(posts()).toHaveLength(1))
-  expect(submit).toBeDisabled()
-  expect(screen.queryByText('Simulação concluída. Nenhum pagamento foi realizado.')).not.toBeInTheDocument()
-  await act(async () => { resolve(json({ receipt: RECEIPT }, 201)) })
-  expect(screen.getByRole('status')).toHaveTextContent('Simulação concluída. Nenhum pagamento foi realizado.')
-  expect(screen.getByText(/preço.*atualizad/i)).toBeInTheDocument()
-  expect(screen.getAllByText(/15,00/).length).toBeGreaterThan(0)
-  const body = JSON.parse(posts()[0][1]?.body as string)
-  expect(Object.keys(body).sort()).toEqual(['idempotencyKey', 'items'])
-  expect(body.items).toEqual([{ productId: 'a', quantity: 1 }])
-  expect(body.idempotencyKey).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i)
-  expect(get).not.toHaveBeenCalled(); expect(set).not.toHaveBeenCalled(); expect(log).not.toHaveBeenCalled()
+it('invalidselection nuncaGETcatalog/order nemcart silently corrected',async()=>{
+  render(<CheckoutPage invalidInitialSelection/>);expect(await screen.findByRole('alert')).toHaveTextContent('Seleção de produto ou pedido inválida.');expect(fetch).toHaveBeenCalledTimes(1)
 })
-
-it.each(['network', '500'])('falha%s não autoposta; retry manual mantém exata key/payload', async (failure) => {
-  await ready()
-  if (failure === 'network') vi.mocked(fetch).mockRejectedValueOnce(new TypeError('network'))
-  else vi.mocked(fetch).mockResolvedValueOnce(json({ error: 'private' }, 500))
-  await conclude()
-  await screen.findByRole('alert')
-  const first = posts()[0][1]?.body
+it('pendingdouble1POST strictpayload;redirect sóvalidado nuncaalega paid',async()=>{
+  const pending=deferred();vi.mocked(fetch).mockImplementationOnce(pending.fetch);await ready();review();pay();pay();await waitFor(()=>expect(posts()).toHaveLength(1));expect(screen.getByRole('button',{name:'Pagar com Stripe'})).toBeDisabled();expect(payments.redirectToStripe).not.toHaveBeenCalled();await act(async()=>pending.resolve(json(RESULT,201)));await waitFor(()=>expect(payments.redirectToStripe).toHaveBeenCalledWith(RESULT.checkoutUrl));expect(screen.getByRole('status')).not.toHaveTextContent('Pagamento confirmado pelo servidor.');expect(JSON.parse(posts()[0][1]?.body as string)).toEqual({items:[{productId:'a',quantity:1}],idempotencyKey:expect.stringMatching(/^[0-9a-f-]{36}$/)})
+})
+it.each(['network','500'])('falha%s mantém manualmesmakeypayload/noautopost;edição nova key e aviso',async(kind)=>{
+  if(kind==='network')vi.mocked(fetch).mockRejectedValueOnce(new TypeError('network'));else vi.mocked(fetch).mockResolvedValueOnce(json({},500));vi.mocked(fetch).mockRejectedValueOnce(new TypeError('network')).mockResolvedValueOnce(json(RESULT,201));await ready();review();pay();await screen.findByRole('alert');const first=posts()[0][1]?.body;expect(posts()).toHaveLength(1);fireEvent.click(screen.getByRole('button',{name:'Tentar novamente'}));await waitFor(()=>expect(posts()).toHaveLength(2));await waitFor(()=>expect(screen.getByRole('button',{name:'Pagar com Stripe'})).toBeEnabled());expect(posts()[1][1]?.body).toBe(first);fireEvent.click(screen.getByRole('button',{name:'Editar carrinho'}));fireEvent.change(screen.getByLabelText('Quantidade de Produto A'),{target:{value:'2'}});expect(screen.getByText(/tentativa anterior pode ter iniciado um pagamento/)).toBeInTheDocument();review();pay();await waitFor(()=>expect(posts()).toHaveLength(3));expect(JSON.parse(posts()[2][1]?.body as string).idempotencyKey).not.toBe(JSON.parse(first as string).idempotencyKey)
+})
+it('POST201unsafeurl não redirect ou paid',async()=>{
+  vi.mocked(fetch).mockResolvedValueOnce(json({...RESULT,checkoutUrl:'https://checkout.stripe.com.evil.example/'},201));await ready();review();pay();await screen.findByRole('alert');expect(payments.redirectToStripe).not.toHaveBeenCalled();expect(screen.queryByRole('heading',{name:'Pagamento confirmado'})).not.toBeInTheDocument()
+})
+it.each([201,200])('POST%s pendingnull consultaowned/poll sem redirect/fakepaid/nova tentativa',async(status)=>{
+  vi.mocked(fetch).mockResolvedValueOnce(json({...RESULT,checkoutUrl:null},status)).mockImplementation(async()=>json({order:ORDER}))
+  await ready();review();pay()
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Atualizar pagamento'})).toBeEnabled())
+  expect(screen.getByRole('heading',{name:'Status do pagamento'})).toBeInTheDocument()
+  expect(screen.getByRole('status')).toHaveTextContent('Pagamento em confirmação.')
+  expect(payments.redirectToStripe).not.toHaveBeenCalled()
+  expect(screen.queryByRole('heading',{name:'Pagamento confirmado'})).not.toBeInTheDocument()
+  expect(screen.queryByRole('button',{name:'Tentar novamente'})).not.toBeInTheDocument()
   expect(posts()).toHaveLength(1)
-  vi.mocked(fetch).mockResolvedValueOnce(json({ receipt: RECEIPT }, 200))
-  fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
-  await waitFor(() => expect(posts()).toHaveLength(2))
-  expect(posts()[1][1]?.body).toBe(first)
-  await screen.findByText('Simulação concluída. Nenhum pagamento foi realizado.')
+  expect(vi.mocked(fetch).mock.calls.filter(([url])=>String(url).includes(`/payments/orders/${ID}`))).toHaveLength(1)
+  vi.useFakeTimers()
+  fireEvent.click(screen.getByRole('button',{name:'Atualizar pagamento'}))
+  await act(async()=>{await Promise.resolve();await Promise.resolve()})
+  await act(async()=>{await vi.advanceTimersByTimeAsync(2000)})
+  expect(vi.mocked(fetch).mock.calls.filter(([url])=>String(url).includes(`/payments/orders/${ID}`)).length).toBeGreaterThanOrEqual(3)
+  expect(posts()).toHaveLength(1);expect(payments.redirectToStripe).not.toHaveBeenCalled()
+  expect(screen.getByRole('status')).toHaveTextContent('Pagamento em confirmação.')
 })
-
-it('editar tentativa incerta avisa e nova conclusão usa key nova', async () => {
-  await ready()
-  vi.mocked(fetch).mockRejectedValueOnce(new TypeError('network'))
-  await conclude(); await screen.findByRole('alert')
-  const first = JSON.parse(posts()[0][1]?.body as string)
-  fireEvent.click(screen.getByRole('button', { name: 'Editar carrinho' }))
-  fireEvent.change(screen.getByRole('spinbutton', { name: 'Quantidade de Produto A' }), { target: { value: '2' } })
-  expect(screen.getByText(/tentativa anterior.*(?:incerta|concluída|confirmad)/i)).toBeInTheDocument()
-  vi.mocked(fetch).mockResolvedValueOnce(json({ receipt: { ...RECEIPT, items: [{ ...RECEIPT.items[0], quantity: 2, lineTotalCents: 3000 }], totalCents: 3000 } }, 201))
-  fireEvent.click(screen.getByRole('button', { name: 'Revisar pedido' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Concluir simulação' }))
-  await waitFor(() => expect(posts()).toHaveLength(2))
-  const next = JSON.parse(posts()[1][1]?.body as string)
-  expect(next.idempotencyKey).not.toBe(first.idempotencyKey)
-  expect(next.items).toEqual([{ productId: 'a', quantity: 2 }])
+it.each(['sucesso','cancelado'] as const)('retorno%s não paid;GETownedauthoritative/UTC/quantidades',async(returnStatus)=>{
+  vi.mocked(fetch).mockResolvedValueOnce(json({order:ORDER})).mockResolvedValueOnce(json({order:{...ORDER,status:'paid'}}));render(<CheckoutPage initialOrderId={ID} returnStatus={returnStatus}/>);await waitFor(()=>expect(screen.getByRole('button',{name:'Atualizar pagamento'})).toBeEnabled());expect(screen.getByRole('heading',{name:'Status do pagamento'})).toBeInTheDocument();expect(posts()).toHaveLength(0);expect(payments.redirectToStripe).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Atualizar pagamento'}));await screen.findByRole('heading',{name:'Pagamento confirmado'});const receipt=screen.getByRole('region',{name:'Pagamento confirmado'});expect(within(receipt).getByText(/2 ×.*12,34.*USD/)).toBeInTheDocument();expect(within(receipt).getByText(/Total do pedido:.*24,68.*USD/)).toBeInTheDocument();expect(receipt.querySelector('time')).toHaveAttribute('datetime',ORDER.createdAt);expect(receipt.querySelector('time')).toHaveTextContent('UTC');expect(screen.getByRole('status')).toHaveTextContent('Pagamento confirmado pelo servidor.')
 })
-
-it('401 limpa estado autenticado sem seedrecibo;403 snapshot anônimo não reenvia POST', async () => {
-  await ready()
-  vi.mocked(fetch).mockResolvedValueOnce(json({ error: 'Sessão não autenticada' }, 401))
-  await conclude()
-  expect(await screen.findByRole('link', { name: 'Entrar para concluir' })).toHaveAttribute('href', '/login')
-  expect(screen.queryByText('Simulação concluída. Nenhum pagamento foi realizado.')).not.toBeInTheDocument()
-  expect(posts()).toHaveLength(1)
-  cleanup(); vi.mocked(fetch).mockClear()
-  await ready()
-  vi.mocked(fetch).mockResolvedValueOnce(json({ error: 'private' }, 403)).mockResolvedValueOnce(json({ user: null, csrfToken: 'new' }))
-  await conclude()
-  await screen.findByRole('link', { name: 'Entrar para concluir' })
-  expect(posts()).toHaveLength(1)
+it('poll401 apagaordem/preços e encerra account sem paidfallback',async()=>{
+  vi.mocked(fetch).mockResolvedValueOnce(json({order:ORDER})).mockResolvedValueOnce(json({},401));render(<CheckoutPage initialOrderId={ID}/>);await waitFor(()=>expect(screen.getByRole('button',{name:'Atualizar pagamento'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Atualizar pagamento'}));await screen.findByRole('link',{name:'Entrar para pagar'});expect(screen.queryByText(`Identificador: ${ID}`)).not.toBeInTheDocument();expect(screen.queryByText('Produto A')).not.toBeInTheDocument();expect(screen.getByRole('status')).toHaveTextContent('Sessão não autenticada.')
 })
-
-it('unmount ignora receipt atrasado em nova montagem anônima', async () => {
-  const view = await ready()
-  let resolve!: (response: Response) => void
-  vi.mocked(fetch).mockReturnValueOnce(new Promise<Response>((done) => { resolve = done }))
-  await conclude(); view.unmount()
-  vi.mocked(fetch).mockImplementation(async (url) => {
-    if (url === '/api/auth/session') return json({ user: null, csrfToken: 'new-token' })
-    if (url === '/api/products') return json(PRODUCTS)
-    throw new Error(`Unexpected request ${String(url)}`)
-  })
-  render(<CheckoutPage initialProductId="a" />)
-  await act(async () => { resolve(json({ receipt: RECEIPT }, 201)) })
-  await screen.findByRole('link', { name: 'Entrar para concluir' })
-  expect(screen.queryByText('Simulação concluída. Nenhum pagamento foi realizado.')).not.toBeInTheDocument()
-  expect(screen.getByRole('link', { name: 'Entrar para concluir' })).toBeInTheDocument()
+it('403snapshot usuário diferente removeoldattempt/cart sem autoPOST',async()=>{
+  vi.mocked(fetch).mockResolvedValueOnce(json({},403)).mockResolvedValueOnce(session({id:'u2',email:'other@example.com'}));await ready();review();pay();await screen.findByText(/A sessão mudou/);expect(posts()).toHaveLength(1);expect(screen.queryByLabelText('Quantidade de Produto A')).not.toBeInTheDocument();expect(screen.queryByLabelText('Produto para adicionar')).not.toBeInTheDocument();expect(screen.queryByText('Produto A')).not.toBeInTheDocument();expect(screen.getByRole('button',{name:'Tentar novamente'})).toBeEnabled();expect(payments.redirectToStripe).not.toHaveBeenCalled()
 })
-
-it('403 recupera usuário diferente e próxima conclusão manual não reutiliza key da conta anterior', async () => {
-  await ready()
-  vi.mocked(fetch).mockResolvedValueOnce(json({ error: 'private' }, 403))
-    .mockResolvedValueOnce(json({ user: { id: 'other-user', email: 'other@example.com' }, csrfToken: 'other-token' }))
-  await conclude(); await screen.findByRole('alert')
-  const first = JSON.parse(posts()[0][1]?.body as string)
-  expect(screen.getByText('A sessão mudou. A tentativa anterior não será repetida nesta conta.')).toBeInTheDocument()
-  expect(posts()).toHaveLength(1)
-  vi.mocked(fetch).mockResolvedValueOnce(json({ receipt: RECEIPT }, 201))
-  fireEvent.click(screen.getByRole('button', { name: 'Concluir simulação' }))
-  await waitFor(() => expect(posts()).toHaveLength(2))
-  expect(JSON.parse(posts()[1][1]?.body as string).idempotencyKey).not.toBe(first.idempotencyKey)
-  expect(new Headers(posts()[1][1]?.headers).get('X-CSRF-Token')).toBe('other-token')
+it('unmountabort GETtardio pago ignorado/novoanon não herdaorder',async()=>{
+  const late=deferred();vi.mocked(fetch).mockImplementationOnce(late.fetch).mockResolvedValueOnce(session(null));const view=render(<CheckoutPage initialOrderId={ID}/>);await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(3));const signal=vi.mocked(fetch).mock.calls[2][1]?.signal;view.unmount();expect(signal?.aborted).toBe(true);render(<CheckoutPage/>);await act(async()=>late.resolve(json({order:{...ORDER,status:'paid'}})));await screen.findByRole('link',{name:'Entrar para pagar'});expect(screen.queryByRole('heading',{name:'Pagamento confirmado'})).not.toBeInTheDocument();expect(posts()).toHaveLength(0)
 })
-
-it('stepper acessível tem somente uma etapa atual e avança carrinho/revisão/recibo confirmado', async () => {
-  await ready()
-  const stepper = screen.getByRole('list', { name: 'Etapas do checkout' })
-  const assertCurrent = (label: RegExp) => {
-    const current = stepper.querySelectorAll('[aria-current="step"]')
-    expect(current).toHaveLength(1)
-    expect(current[0]).toHaveTextContent(label)
-  }
-  assertCurrent(/Carrinho/)
-  fireEvent.click(screen.getByRole('button', { name: 'Revisar pedido' }))
-  assertCurrent(/Revisão/)
-  vi.mocked(fetch).mockResolvedValueOnce(json({ receipt: RECEIPT }, 201))
-  fireEvent.click(screen.getByRole('button', { name: 'Concluir simulação' }))
-  await screen.findByRole('region', { name: 'Recibo da simulação' })
-  assertCurrent(/Recibo/)
-})
-
-it('carrinho vazio oferece catálogo público sem iniciar POST', async () => {
-  await ready(USER, {})
-  expect(screen.getByText('Seu carrinho está vazio.')).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: 'Explorar catálogo' })).toHaveAttribute('href', '/#colecao')
-  expect(screen.getByRole('button', { name: 'Revisar pedido' })).toBeDisabled()
-  expect(posts()).toHaveLength(0)
-})
-
-it('revisar e voltar para editar preserva todos itens/quantidades sem POST', async () => {
-  await ready()
-  fireEvent.change(screen.getByRole('spinbutton', { name: 'Quantidade de Produto A' }), { target: { value: '3' } })
-  fireEvent.change(screen.getByRole('combobox', { name: 'Produto para adicionar' }), { target: { value: 'b' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Adicionar produto' }))
-  fireEvent.change(screen.getByRole('spinbutton', { name: 'Quantidade de Produto B' }), { target: { value: '2' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Revisar pedido' }))
-  expect(screen.getByRole('button', { name: 'Concluir simulação' })).toBeEnabled()
-  fireEvent.click(screen.getByRole('button', { name: 'Editar carrinho' }))
-  expect(screen.getByRole('spinbutton', { name: 'Quantidade de Produto A' })).toHaveValue(3)
-  expect(screen.getByRole('spinbutton', { name: 'Quantidade de Produto B' })).toHaveValue(2)
-  expect(posts()).toHaveLength(0)
-})
-
-it('recibo apresenta quantidade/unitário/linha/total e UTC reais sem camposPII ou claims falsos', async () => {
-  await ready()
-  fireEvent.change(screen.getByRole('spinbutton', { name: 'Quantidade de Produto A' }), { target: { value: '2' } })
-  const receipt = { ...RECEIPT, items: [{ ...RECEIPT.items[0], quantity: 2, lineTotalCents: 3000 }], totalCents: 3000 }
-  vi.mocked(fetch).mockResolvedValueOnce(json({ receipt }, 201))
-  await conclude()
-  const region = await screen.findByRole('region', { name: 'Recibo da simulação' })
-  expect(within(region).getByRole('heading', { name: 'Produto A' })).toBeInTheDocument()
-  expect(within(region).getByText(/2\s*×\s*R\$\s*15,00/)).toBeInTheDocument()
-  expect(within(region).getAllByText(/30,00/).length).toBeGreaterThanOrEqual(2)
-  const time = region.querySelector('time')
-  expect(time).toHaveAttribute('datetime', receipt.createdAt)
-  expect(time?.parentElement).toHaveTextContent('UTC')
-  expect(region.querySelector('input,textarea')).toBeNull()
-  expect(region.textContent).not.toMatch(/pagamento aprovado|cobrança realizada|entrega confirmada|PCI.?DSS|SSL certificado|compra 100% segura/i)
-  expect(screen.queryByLabelText(/CPF|cartão|endereço|CEP/i)).not.toBeInTheDocument()
-  expect(screen.getByRole('status')).toHaveTextContent(/^Simulação concluída\. Nenhum pagamento foi realizado\.$/)
+it('pollmáximo30requests/60s não infinito nem redirect',async()=>{
+  vi.mocked(fetch).mockImplementation(async()=>json({order:ORDER}));render(<CheckoutPage initialOrderId={ID}/>);await waitFor(()=>expect(screen.getByRole('button',{name:'Atualizar pagamento'})).toBeEnabled());vi.useFakeTimers();fireEvent.click(screen.getByRole('button',{name:'Atualizar pagamento'}));await act(async()=>{await Promise.resolve();await Promise.resolve()});await act(async()=>{await vi.advanceTimersByTimeAsync(62000)});const count=vi.mocked(fetch).mock.calls.filter(([u])=>String(u).includes('/payments/orders/')).length;expect(count).toBeLessThanOrEqual(31);expect(screen.getByRole('status')).toHaveTextContent(/Atualize manualmente/);await act(async()=>{await vi.advanceTimersByTimeAsync(120000)});expect(vi.mocked(fetch).mock.calls.filter(([u])=>String(u).includes('/payments/orders/'))).toHaveLength(count);expect(payments.redirectToStripe).not.toHaveBeenCalled()
 })
