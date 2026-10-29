@@ -5,7 +5,9 @@ import type { AuthConfig } from './config.ts'
 import { csrfTokenFor, type AuthStore } from './db.ts'
 import { AuthCapacityError, isValidPassword, isValidRegistrationPassword, normalizeEmail } from './password.ts'
 import { buildDashboard } from '../dashboard.ts'
-import { selectDashboardData } from '../db.ts'
+import { selectDashboardData, selectCheckoutProducts } from '../db.ts'
+import { normalizeCheckoutRequest } from '../checkout.ts'
+import type { CheckoutProduct } from '../../types/checkout.ts'
 import type { DashboardData } from '../../types/dashboard.ts'
 
 function cookieValue(req: Request, name: string): string | undefined {
@@ -17,8 +19,8 @@ function cookieValue(req: Request, name: string): string | undefined {
   return /^[A-Za-z0-9_-]{43}$/.test(value) ? value : undefined
 }
 
-export function createAuthRouter({ config, store, now = Date.now, loadDashboard = () => buildDashboard(selectDashboardData()) }: {
-  config: AuthConfig; store: AuthStore; now?: () => number; loadDashboard?: () => DashboardData
+export function createAuthRouter({ config, store, now = Date.now, loadDashboard = () => buildDashboard(selectDashboardData()), loadCheckoutProducts = selectCheckoutProducts }: {
+  config: AuthConfig; store: AuthStore; now?: () => number; loadDashboard?: () => DashboardData; loadCheckoutProducts?: (ids: string[]) => CheckoutProduct[]
 }) {
   const router = express.Router()
   router.use((_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next() })
@@ -50,6 +52,9 @@ export function createAuthRouter({ config, store, now = Date.now, loadDashboard 
   router.use((req, res, next) => {
     if (req.method !== 'POST') return next()
     if (req.headers.origin !== config.origin) return unauthorized(res)
+    if (/^\/checkout\/?$/i.test(req.path) && !store.findUserSession(cookieValue(req, config.sessionCookieName), cookieValue(req, config.csrfCookieName))) {
+      return res.status(401).json({ error: 'Sessão não autenticada' })
+    }
     if (/^\/register\/?$/i.test(req.path) && (req.headers.cookie || '').split(';')
       .some((entry) => entry.trim().startsWith(`${config.sessionCookieName}=`))) return unauthorized(res)
     const cookie = cookieValue(req, config.csrfCookieName)
@@ -62,6 +67,20 @@ export function createAuthRouter({ config, store, now = Date.now, loadDashboard 
     next()
   })
   router.use(express.json({ limit: '4kb', strict: false }))
+
+  router.post('/checkout', (req, res) => {
+    const request = normalizeCheckoutRequest(req.body)
+    if (!request) return res.status(400).json({ error: 'Dados de checkout inválidos' })
+    const token = cookieValue(req, config.sessionCookieName)!
+    const csrfCookie = cookieValue(req, config.csrfCookieName)!
+    const user = store.findUserSession(token, csrfCookie)
+    if (!user) return res.status(401).json({ error: 'Sessão não autenticada' })
+    store.consumeAttempt(req.socket.remoteAddress || 'desconhecido', user.email)
+    const result = store.createCheckout({ token, csrfCookie, request, loadProducts: loadCheckoutProducts })
+    if (result === 'unauthorized') return res.status(401).json({ error: 'Sessão não autenticada' })
+    if (result === 'conflict') return res.status(409).json({ error: 'Não foi possível concluir com os dados informados' })
+    res.status(result.created ? 201 : 200).json({ receipt: result.receipt })
+  })
 
   router.post('/register', async (req, res) => {
     const body: unknown = req.body
@@ -109,7 +128,7 @@ export function createAuthRouter({ config, store, now = Date.now, loadDashboard 
     }
     if (error?.status === 413) return res.status(413).json({ error: 'Corpo da requisição muito grande' })
     if (error?.status === 415) return res.status(415).json({ error: 'Formato da requisição não suportado' })
-    if (error?.status === 400) return res.status(400).json({ error: error?.type === 'entity.parse.failed' ? 'JSON inválido' : /^\/register\/?$/i.test(_req.path) ? 'Dados de cadastro inválidos' : 'Dados de acesso inválidos' })
+    if (error?.status === 400) return res.status(400).json({ error: error?.type === 'entity.parse.failed' ? 'JSON inválido' : /^\/register\/?$/i.test(_req.path) ? 'Dados de cadastro inválidos' : /^\/checkout\/?$/i.test(_req.path) ? 'Dados de checkout inválidos' : 'Dados de acesso inválidos' })
     res.status(500).json({ error: 'Erro interno no servidor' })
   }
   router.use(onError)

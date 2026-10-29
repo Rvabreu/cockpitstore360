@@ -110,6 +110,33 @@ before reading the demo tracking database.
 Any registered or provisioned account sees the same demonstrative operational data. This is
 not an administrator role system or authorization for private customer orders.
 
+## Checkout simulation
+
+Open `/checkout` or select **Comprar (simulação)** on a product. The cart supports
+multiple live catalog products and quantities from 1 to 10 per item. Sign in
+before confirming; the cart remains in memory and is not restored from storage.
+Review the estimate before selecting **Concluir simulação**.
+
+This is not a payment integration: no money is charged, stock is not reserved,
+and no delivery is scheduled. Card details, CPF and addresses are not collected.
+The result is a simulation receipt, not a paid order or fiscal invoice.
+
+`POST /api/auth/checkout` accepts only `items` (product IDs and quantities) and a
+UUID-v4 `idempotencyKey`. The server verifies session, CSRF and exact Origin,
+calculates prices in cents from SQLite and persists a receipt in `auth.db` owned
+by the account. New receipts return 201; replay of the same key and canonical
+payload returns 200 with the original receipt, even if catalog prices changed.
+Reusing a key with different items returns 409. Receipt storage is limited to
+10,000 entries; existing replays remain valid at capacity.
+
+Network or server failures may leave confirmation uncertain. A manual retry uses
+the same key and item snapshot for the same account; editing the cart starts a
+new attempt with an uncertainty warning. Do not interpret an error as proof that
+no receipt was created. No automatic POST retries are performed.
+
+Simulation receipts do not enter the public tracking dataset or dashboard.
+There is no receipt history endpoint, shipping service or payment gateway.
+
 ## API
 
 The API router is defined once in `src/server/index.ts`, backed by

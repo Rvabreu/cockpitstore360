@@ -2,6 +2,8 @@ import Database from 'better-sqlite3'
 import { randomBytes, randomUUID, createHash } from 'node:crypto'
 import fs from 'node:fs'
 import pathModule from 'node:path'
+import type { CheckoutProduct, CheckoutReceipt, CheckoutRequest } from '../../types/checkout.ts'
+import { buildCheckoutReceipt, normalizeCheckoutRequest } from '../checkout.ts'
 import { AuthCapacityError, hashPassword, isValidPassword, isValidRegistrationPassword, normalizeEmail, verifyPassword } from './password.ts'
 
 export const SESSION_TTL = 8 * 60 * 60 * 1000
@@ -42,6 +44,11 @@ export function createAuthStore({ path = pathModule.resolve('data/auth.db'), now
       csrf_hash TEXT NOT NULL REFERENCES csrf_bootstraps(cookie_hash), expires_at INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS login_limits (key_hash TEXT PRIMARY KEY, count INTEGER NOT NULL, expires_at INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS checkout_receipts (
+      id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), idempotency_key TEXT NOT NULL,
+      request_hash TEXT NOT NULL, receipt_json TEXT NOT NULL, created_at TEXT NOT NULL,
+      UNIQUE(user_id, idempotency_key)
+    );
     CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS csrf_expiry ON csrf_bootstraps(expires_at);
     CREATE INDEX IF NOT EXISTS limits_expiry ON login_limits(expires_at);
@@ -73,6 +80,33 @@ export function createAuthStore({ path = pathModule.resolve('data/auth.db'), now
   return {
     db,
     close() { db.close() },
+    createCheckout({ token, csrfCookie, request, loadProducts }: {
+      token: string; csrfCookie: string; request: CheckoutRequest; loadProducts: (ids: string[]) => CheckoutProduct[]
+    }): { created: boolean; receipt: CheckoutReceipt } | 'unauthorized' | 'conflict' {
+      const canonical = normalizeCheckoutRequest(request)
+      if (!canonical) throw new Error('Dados de checkout inválidos')
+      return db.transaction(() => {
+        const timestamp = now()
+        const user = db.prepare(`SELECT u.id FROM users u JOIN sessions s ON s.user_id=u.id
+          JOIN csrf_bootstraps c ON c.cookie_hash=s.csrf_hash
+          WHERE s.token_hash=? AND c.cookie_hash=? AND s.expires_at>? AND c.expires_at>?`)
+          .get(digest(token), digest(csrfCookie), timestamp, timestamp) as { id: string } | undefined
+        if (!user) return 'unauthorized' as const
+        const requestHash = digest(JSON.stringify(canonical.items))
+        const existing = db.prepare('SELECT request_hash,receipt_json FROM checkout_receipts WHERE user_id=? AND idempotency_key=?')
+          .get(user.id, canonical.idempotencyKey) as { request_hash: string; receipt_json: string } | undefined
+        if (existing) return existing.request_hash === requestHash
+          ? { created: false, receipt: JSON.parse(existing.receipt_json) as CheckoutReceipt }
+          : 'conflict' as const
+        const total = db.prepare('SELECT count(*) AS count FROM checkout_receipts').get() as { count: number }
+        if (total.count >= CAPACITY) throw new AuthCapacityError()
+        const receipt = buildCheckoutReceipt(canonical, loadProducts(canonical.items.map(item => item.productId)), { now })
+        if (!receipt) return 'conflict' as const
+        db.prepare('INSERT INTO checkout_receipts(id,user_id,idempotency_key,request_hash,receipt_json,created_at) VALUES(?,?,?,?,?,?)')
+          .run(receipt.id, user.id, canonical.idempotencyKey, requestHash, JSON.stringify(receipt), receipt.createdAt)
+        return { created: true, receipt }
+      }).immediate()
+    },
     async provisionUser({ email, password }: { email: string; password: string }): Promise<AuthUser> {
       const normalized = normalizeEmail(email)
       if (!normalized || !isValidPassword(password, 12)) throw new Error('Informe e-mail válido e senha entre 12 e 256 caracteres.')
