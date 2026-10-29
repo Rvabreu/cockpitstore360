@@ -33,6 +33,20 @@ function fill() {
 }
 
 describe('login and authentication UI', () => {
+  it('presents the new editorial, clear access hierarchy and faithful demo notice without fictitious account actions', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response()))
+    mount()
+    await ready()
+    expect(screen.getByRole('heading', { level: 2, name: 'SUA CONTA, SEU UNIVERSO.' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Bem-vindo de volta.' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continuar com Google' })).toHaveAccessibleDescription('Continue com segurança na página do Google.'))
+    expect(screen.getByLabelText('E-mail')).toHaveAttribute('id', 'login-email')
+    expect(screen.getByLabelText('Senha')).toHaveAttribute('id', 'login-password')
+    expect(screen.getByText(/Ambiente demonstrativo\. O catálogo e os pedidos/)).toHaveTextContent('Use uma conta provisionada pelo administrador ou Google, quando disponível.')
+    expect(screen.getByRole('link', { name: /Explorar o catálogo sem entrar/ })).toHaveAttribute('href', '/#colecao')
+    expect(screen.queryByRole('link', { name: /criar conta|cadastre|recuperar|esqueci/i })).not.toBeInTheDocument()
+  })
+
   it('SSR renders initial loading state without any fetch', () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)

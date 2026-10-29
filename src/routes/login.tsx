@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { ArrowLeft, ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ArrowUpRight, Eye, EyeOff, LockKeyhole, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../context/auth'
 import { safeReturnPath, SESSION_ERROR } from '../services/authService'
 import { googleAvailable, googleResult, startGoogleLogin, GOOGLE_CANCELLED, GOOGLE_ERROR, GOOGLE_UNAVAILABLE } from '../services/googleAuthService'
@@ -103,18 +103,26 @@ export function LoginScreen({ returnTo = '/', google, onAuthenticated }: {
   }
 
   return <main className="login-shell">
-    <a href="/" className="login-back"><ArrowLeft size={16} aria-hidden="true" /> Voltar à loja</a>
+    <div className="login-topline">
+      <a href="/" className="login-back"><ArrowLeft size={16} aria-hidden="true" /> Voltar à loja</a>
+      <span className="login-topline-label">COCKPIT STORE 360 / ACESSO</span>
+    </div>
     <div className="login-layout">
       <section className="login-editorial" aria-labelledby="login-editorial-title">
-        <div className="login-eyebrow">SEU PRÓXIMO MOVIMENTO</div>
-        <h2 id="login-editorial-title">Tecnologia que conecta.<br /><span>Uma experiência que acompanha.</span></h2>
-        <p>Entre na sua conta e continue sua jornada na Cockpit Store 360.</p>
-        <img src="/assets/hero_produtos.svg" alt="Seleção ilustrativa de fones de ouvido, relógio e caixa de som Cockpit" />
-        <div className="login-editorial-foot"><span>ORBIT / PULSE / WAVE</span><span>DESIGN PARA O SEU DIA A DIA</span></div>
+        <div className="login-eyebrow"><span className="login-accent-line" aria-hidden="true" /> CONECTE-SE AO SEU PRÓXIMO MOVIMENTO</div>
+        <h2 id="login-editorial-title">SUA CONTA,<br /><span>SEU UNIVERSO.</span></h2>
+        <p className="login-editorial-copy">Design que inspira. Tecnologia que acompanha.<br />Sua próxima experiência começa aqui.</p>
+        <figure className="login-showcase">
+          <div className="login-showcase-heading"><span>ESSENCIAIS DO SEU DIA</span><ArrowUpRight size={20} aria-hidden="true" /></div>
+          <img src="/assets/hero_produtos.svg" alt="Seleção ilustrativa de fones de ouvido, relógio e caixa de som Cockpit" />
+          <figcaption><span>ORBIT / PULSE / WAVE</span><span className="login-showcase-index">360°</span></figcaption>
+        </figure>
       </section>
       <section className="login-panel" aria-labelledby="login-title">
-        <div className="login-icon"><ShieldCheck size={24} aria-hidden="true" /></div>
-        <div className="login-eyebrow">COCKPIT STORE 360</div>
+        <div className="login-panel-heading">
+          <div className="login-eyebrow">SEU ESPAÇO NA COCKPIT</div>
+          <div className="login-icon"><LockKeyhole size={20} aria-hidden="true" /></div>
+        </div>
         <h1 id="login-title">{user ? 'Você está conectado.' : 'Bem-vindo de volta.'}</h1>
         <p className="login-intro">{user ? 'Sua sessão está ativa neste navegador.' : 'Entre com Google ou com seu e-mail e senha para acessar sua conta.'}</p>
         {error && <div ref={alertRef} role="alert" tabIndex={-1} className="login-alert">
@@ -129,7 +137,7 @@ export function LoginScreen({ returnTo = '/', google, onAuthenticated }: {
           {googleMessage && <div ref={googleAlertRef} role="alert" tabIndex={-1} className="login-alert">{googleMessage}</div>}
           <button className="login-google" type="button" disabled={googleDisabled} aria-busy={googlePending}
             aria-describedby="google-status" onClick={() => void continueWithGoogle()}>
-            Continuar com Google
+            Continuar com Google <ArrowUpRight size={18} aria-hidden="true" />
           </button>
           <p id="google-status" role="status" className="login-note">
             {googlePending ? 'Redirecionando para o Google…' : loading ? 'Verificando sessão…' :
@@ -160,11 +168,11 @@ export function LoginScreen({ returnTo = '/', google, onAuthenticated }: {
             {loading ? 'Verificando sessão…' : pending === 'login' ? 'Entrando…' : 'Entrar na conta'}
             {!busy && <ArrowRight size={18} aria-hidden="true" />}
           </button>
-          <p role="status" className="login-note">{busy ? 'Aguarde um instante.' : 'Sua senha não é armazenada neste navegador.'}</p>
+          <p role="status" className="login-note login-trust"><ShieldCheck size={15} aria-hidden="true" />{busy ? 'Aguarde um instante.' : 'Sua senha não é armazenada neste navegador.'}</p>
         </form></>}
-        <div className="login-demo-note">Ambiente demonstrativo. O catálogo e os pedidos exibidos na loja são fictícios. Use uma conta provisionada pelo administrador ou Google, quando disponível.</div>
         <a href="/#colecao" className="login-browse">Explorar o catálogo sem entrar <ArrowRight size={14} aria-hidden="true" /></a>
       </section>
     </div>
+    <div className="login-demo-note"><span className="login-demo-label">EXPERIÊNCIA DEMO</span><p>Ambiente demonstrativo. O catálogo e os pedidos exibidos na loja são fictícios. Use uma conta provisionada pelo administrador ou Google, quando disponível.</p></div>
   </main>
 }
