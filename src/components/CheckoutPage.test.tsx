@@ -169,3 +169,61 @@ it('403 recupera usuário diferente e próxima conclusão manual não reutiliza 
   expect(JSON.parse(posts()[1][1]?.body as string).idempotencyKey).not.toBe(first.idempotencyKey)
   expect(new Headers(posts()[1][1]?.headers).get('X-CSRF-Token')).toBe('other-token')
 })
+
+it('stepper acessível tem somente uma etapa atual e avança carrinho/revisão/recibo confirmado', async () => {
+  await ready()
+  const stepper = screen.getByRole('list', { name: 'Etapas do checkout' })
+  const assertCurrent = (label: RegExp) => {
+    const current = stepper.querySelectorAll('[aria-current="step"]')
+    expect(current).toHaveLength(1)
+    expect(current[0]).toHaveTextContent(label)
+  }
+  assertCurrent(/Carrinho/)
+  fireEvent.click(screen.getByRole('button', { name: 'Revisar pedido' }))
+  assertCurrent(/Revisão/)
+  vi.mocked(fetch).mockResolvedValueOnce(json({ receipt: RECEIPT }, 201))
+  fireEvent.click(screen.getByRole('button', { name: 'Concluir simulação' }))
+  await screen.findByRole('region', { name: 'Recibo da simulação' })
+  assertCurrent(/Recibo/)
+})
+
+it('carrinho vazio oferece catálogo público sem iniciar POST', async () => {
+  await ready(USER, {})
+  expect(screen.getByText('Seu carrinho está vazio.')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Explorar catálogo' })).toHaveAttribute('href', '/#colecao')
+  expect(screen.getByRole('button', { name: 'Revisar pedido' })).toBeDisabled()
+  expect(posts()).toHaveLength(0)
+})
+
+it('revisar e voltar para editar preserva todos itens/quantidades sem POST', async () => {
+  await ready()
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Quantidade de Produto A' }), { target: { value: '3' } })
+  fireEvent.change(screen.getByRole('combobox', { name: 'Produto para adicionar' }), { target: { value: 'b' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Adicionar produto' }))
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Quantidade de Produto B' }), { target: { value: '2' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Revisar pedido' }))
+  expect(screen.getByRole('button', { name: 'Concluir simulação' })).toBeEnabled()
+  fireEvent.click(screen.getByRole('button', { name: 'Editar carrinho' }))
+  expect(screen.getByRole('spinbutton', { name: 'Quantidade de Produto A' })).toHaveValue(3)
+  expect(screen.getByRole('spinbutton', { name: 'Quantidade de Produto B' })).toHaveValue(2)
+  expect(posts()).toHaveLength(0)
+})
+
+it('recibo apresenta quantidade/unitário/linha/total e UTC reais sem camposPII ou claims falsos', async () => {
+  await ready()
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Quantidade de Produto A' }), { target: { value: '2' } })
+  const receipt = { ...RECEIPT, items: [{ ...RECEIPT.items[0], quantity: 2, lineTotalCents: 3000 }], totalCents: 3000 }
+  vi.mocked(fetch).mockResolvedValueOnce(json({ receipt }, 201))
+  await conclude()
+  const region = await screen.findByRole('region', { name: 'Recibo da simulação' })
+  expect(within(region).getByRole('heading', { name: 'Produto A' })).toBeInTheDocument()
+  expect(within(region).getByText(/2\s*×\s*R\$\s*15,00/)).toBeInTheDocument()
+  expect(within(region).getAllByText(/30,00/).length).toBeGreaterThanOrEqual(2)
+  const time = region.querySelector('time')
+  expect(time).toHaveAttribute('datetime', receipt.createdAt)
+  expect(time?.parentElement).toHaveTextContent('UTC')
+  expect(region.querySelector('input,textarea')).toBeNull()
+  expect(region.textContent).not.toMatch(/pagamento aprovado|cobrança realizada|entrega confirmada|PCI.?DSS|SSL certificado|compra 100% segura/i)
+  expect(screen.queryByLabelText(/CPF|cartão|endereço|CEP/i)).not.toBeInTheDocument()
+  expect(screen.getByRole('status')).toHaveTextContent(/^Simulação concluída\. Nenhum pagamento foi realizado\.$/)
+})

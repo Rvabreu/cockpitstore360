@@ -116,6 +116,10 @@ Open `/checkout` or select **Comprar (simulação)** on a product. The cart supp
 multiple live catalog products and quantities from 1 to 10 per item. Sign in
 before confirming; the cart remains in memory and is not restored from storage.
 Review the estimate before selecting **Concluir simulação**.
+The interface separates cart, review and receipt with an accessible step indicator,
+product cards and a highlighted summary that stays visible on desktop. On small
+screens, the sections stack without hiding the simulation notices. An empty cart
+links back to the store catalog.
 
 This is not a payment integration: no money is charged, stock is not reserved,
 and no delivery is scheduled. Card details, CPF and addresses are not collected.
