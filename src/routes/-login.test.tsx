@@ -1,10 +1,20 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
 import { AuthProvider } from '../context/auth'
 import Header from '../components/Header'
-import { LoginScreen } from './login'
+import { LoginScreen, validateLoginSearch } from './login'
 import { AUTH_ERROR, LOGOUT_ERROR } from '../services/authService'
+import { googleAvailable, startGoogleLogin, GOOGLE_CANCELLED, GOOGLE_ERROR, GOOGLE_UNAVAILABLE } from '../services/googleAuthService'
+
+vi.mock('../services/googleAuthService', async (original) => ({
+  ...await original<typeof import('../services/googleAuthService')>(),
+  googleAvailable: vi.fn(), startGoogleLogin: vi.fn(),
+}))
+beforeEach(() => {
+  vi.mocked(googleAvailable).mockReset().mockResolvedValue(true)
+  vi.mocked(startGoogleLogin).mockReset().mockResolvedValue(undefined)
+})
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 const response = (authenticated = false) => new Response(JSON.stringify({
@@ -23,11 +33,27 @@ function fill() {
 }
 
 describe('login and authentication UI', () => {
+  it('presents the new editorial, clear access hierarchy and faithful demo notice without fictitious account actions', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response()))
+    mount()
+    await ready()
+    expect(screen.getByRole('heading', { level: 2, name: 'SUA CONTA, SEU UNIVERSO.' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Bem-vindo de volta.' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continuar com Google' })).toHaveAccessibleDescription('Continue com segurança na página do Google.'))
+    expect(screen.getByLabelText('E-mail')).toHaveAttribute('id', 'login-email')
+    expect(screen.getByLabelText('Senha')).toHaveAttribute('id', 'login-password')
+    expect(screen.getByText(/Ambiente demonstrativo\. O catálogo e os pedidos/)).toHaveTextContent('Use uma conta provisionada pelo administrador ou Google, quando disponível.')
+    expect(screen.getByRole('link', { name: /Explorar o catálogo sem entrar/ })).toHaveAttribute('href', '/#colecao')
+    expect(screen.queryByRole('link', { name: /criar conta|cadastre|recuperar|esqueci/i })).not.toBeInTheDocument()
+  })
+
   it('SSR renders initial loading state without any fetch', () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
     expect(renderToString(<AuthProvider><LoginScreen onAuthenticated={vi.fn()} /></AuthProvider>)).toContain('Verificando sessão')
+    expect(renderToString(<AuthProvider><LoginScreen onAuthenticated={vi.fn()} /></AuthProvider>)).toMatch(/<button[^>]*disabled=""[^>]*>Continuar com Google/)
     expect(fetchMock).not.toHaveBeenCalled()
+    expect(googleAvailable).not.toHaveBeenCalled()
   })
 
   it('validates accessible fields, focuses first invalid field, never sends invalid credentials', async () => {
@@ -144,5 +170,101 @@ describe('login and authentication UI', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Verificar sessão novamente' }))
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
     await ready()
+  })
+})
+
+describe('Google login UI', () => {
+  it('waits for session and status, without blocking local login while status is pending', async () => {
+    let resolveStatus!: (available: boolean) => void
+    vi.mocked(googleAvailable).mockReturnValue(new Promise((resolve) => { resolveStatus = resolve }))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response()))
+    mount('/#colecao')
+    const googleButton = screen.getByRole('button', { name: 'Continuar com Google' })
+    expect(googleButton).toBeDisabled()
+    await ready()
+    expect(googleButton).toBeDisabled()
+    fireEvent.click(googleButton)
+    expect(startGoogleLogin).not.toHaveBeenCalled()
+    resolveStatus(true)
+    await waitFor(() => expect(googleButton).toBeEnabled())
+    fireEvent.click(googleButton)
+    fireEvent.click(googleButton)
+    expect(startGoogleLogin).toHaveBeenCalledTimes(1)
+    expect(startGoogleLogin).toHaveBeenCalledWith('/#colecao')
+    expect(googleButton).toBeDisabled()
+    expect(screen.getByLabelText('Senha')).toBeDisabled()
+    expect(screen.getByText('Redirecionando para o Google…')).toBeInTheDocument()
+  })
+
+  it.each(['missing configuration', 'network failure'])('keeps local login working with %s', async (scenario) => {
+    if (scenario === 'network failure') vi.mocked(googleAvailable).mockRejectedValue(new Error('private diagnostic'))
+    else vi.mocked(googleAvailable).mockResolvedValue(false)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(response()).mockResolvedValueOnce(response(true)))
+    const redirect = mount()
+    await screen.findByText(GOOGLE_UNAVAILABLE)
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar com Google' }))
+    expect(startGoogleLogin).not.toHaveBeenCalled()
+    expect(screen.queryByText('private diagnostic')).not.toBeInTheDocument()
+    fill()
+    fireEvent.click(screen.getByRole('button', { name: 'Entrar na conta' }))
+    await waitFor(() => expect(redirect).toHaveBeenCalledWith('/'))
+  })
+
+  it('shows generic focused start error and allows retry', async () => {
+    vi.mocked(startGoogleLogin).mockRejectedValueOnce(new Error('client secret diagnostic'))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response()))
+    mount()
+    const button = screen.getByRole('button', { name: 'Continuar com Google' })
+    await waitFor(() => expect(button).toBeEnabled())
+    fireEvent.click(button)
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveFocus())
+    expect(screen.getByRole('alert')).toHaveTextContent(GOOGLE_ERROR)
+    expect(screen.queryByText('client secret diagnostic')).not.toBeInTheDocument()
+    expect(button).toBeEnabled()
+    expect(screen.getByLabelText('Senha')).toBeEnabled()
+    fireEvent.click(button)
+    expect(startGoogleLogin).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not start Google after session restore failure, and enables it after a successful retry', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce(response()))
+    mount()
+    await screen.findByRole('alert')
+    const button = screen.getByRole('button', { name: 'Continuar com Google' })
+    expect(button).toBeDisabled()
+    fireEvent.click(button)
+    expect(startGoogleLogin).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Verificar sessão novamente' }))
+    await waitFor(() => expect(button).toBeEnabled())
+  })
+
+  it.each([
+    ['cancelled', GOOGLE_CANCELLED], ['error', GOOGLE_ERROR], ['unavailable', GOOGLE_UNAVAILABLE],
+  ] as const)('validates and presents callback result %s', async (google, message) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response()))
+    expect(validateLoginSearch({ google, returnTo: '//evil.test' })).toEqual({ google, returnTo: '/' })
+    render(<AuthProvider><LoginScreen google={google} onAuthenticated={vi.fn()} /></AuthProvider>)
+    await ready()
+    expect(screen.getByRole('alert')).toHaveTextContent(message)
+  })
+
+  it.each(['<script>alert(1)</script>', ['cancelled'], 'unknown', undefined])('ignores untrusted callback result %s', (google) => {
+    expect(validateLoginSearch({ google }).google).toBeUndefined()
+  })
+
+  it('does not offer Google for authenticated session or start while local login is pending', async () => {
+    let resolveLogin!: (value: Response) => void
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(response()).mockReturnValueOnce(new Promise<Response>((resolve) => { resolveLogin = resolve })))
+    mount()
+    const googleButton = screen.getByRole('button', { name: 'Continuar com Google' })
+    await waitFor(() => expect(googleButton).toBeEnabled())
+    fill()
+    fireEvent.click(screen.getByRole('button', { name: 'Entrar na conta' }))
+    expect(googleButton).toBeDisabled()
+    fireEvent.click(googleButton)
+    expect(startGoogleLogin).not.toHaveBeenCalled()
+    resolveLogin(response(true))
+    await screen.findByText('Você está conectado.')
+    expect(screen.queryByRole('button', { name: 'Continuar com Google' })).not.toBeInTheDocument()
   })
 })

@@ -4,6 +4,9 @@ import { timingSafeEqual } from 'node:crypto'
 import { AuthStore, authConfig, validEmail, validPassword } from './auth.ts'
 import type { Session } from './auth.ts'
 import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } from './db.ts'
+import { GoogleOidc, googleCallbackQuery, safeGoogleReturnPath } from './google.ts'
+import type { GoogleOptions } from './google.ts'
+import { GOOGLE_FLOW_TTL } from './auth.ts'
 
 const NOT_FOUND_MESSAGE = 'Pedido não localizado neste ambiente de demonstração.'
 const payload = (body: unknown, keys: string[]) => body !== null && typeof body === 'object' &&
@@ -17,13 +20,20 @@ function readCookie(req: Request, name: string) {
   return values.length === 1 ? values[0].slice(name.length + 1) : undefined
 }
 
-export function createApiRouter(options: { store?: AuthStore; config?: ReturnType<typeof authConfig> } = {}) {
+export function createApiRouter(options: { store?: AuthStore; config?: ReturnType<typeof authConfig>; google?: GoogleOptions } = {}) {
   const config = options.config ?? authConfig()
   const store = options.store ?? new AuthStore()
+  const google = new GoogleOidc(options.google)
+  const googleAvailable = !!google.config && google.config.origin === config.origin
+  const googleCookie = config.secure ? '__Host-cockpit-google' : 'cockpit-google'
+  const cookieOptions = { httpOnly: true, sameSite: 'lax' as const, secure: config.secure, path: '/' }
   const router = express.Router()
   const sessionFor = (req: Request) => store.session(readCookie(req, config.cookieName))
+  const setSession = (res: Response, rotated: ReturnType<AuthStore['rotate']>) => {
+    res.cookie(config.cookieName, rotated.raw, { ...cookieOptions, maxAge: rotated.session.expires_at - store.now() })
+  }
   const sendSession = (res: Response, rotated: ReturnType<AuthStore['rotate']>) => {
-    res.cookie(config.cookieName, rotated.raw, { httpOnly: true, sameSite: 'lax', secure: config.secure, path: '/', maxAge: rotated.session.expires_at - store.now() })
+    setSession(res, rotated)
     return res.json(view(rotated.session))
   }
   const allowedOrigin = (req: Request, mutation: boolean) => {
@@ -56,6 +66,43 @@ export function createApiRouter(options: { store?: AuthStore; config?: ReturnTyp
     next()
   })
   router.use(express.json({ limit: '4kb', strict: true }))
+
+  router.get('/auth/google/status', (req, res) => {
+    if (!allowedOrigin(req, false)) return res.status(403).json({ error: 'Requisição não autorizada.' })
+    return res.json({ available: googleAvailable })
+  })
+  router.post('/auth/google/start', (req, res) => {
+    if (!payload(req.body, ['returnTo']) || typeof req.body.returnTo !== 'string' || req.body.returnTo.length > 2048) {
+      return res.status(400).json({ error: 'Dados inválidos.' })
+    }
+    if (!googleAvailable) return res.status(503).json({ error: 'Login Google indisponível.' })
+    if (!store.consumeGoogleAttempt('start', req.socket.remoteAddress ?? 'unknown')) {
+      res.set('Retry-After', '900')
+      return res.status(429).json({ error: 'Muitas tentativas. Aguarde e tente novamente.' })
+    }
+    const flow = store.startGoogle(sessionFor(req)!, safeGoogleReturnPath(req.body.returnTo))
+    res.cookie(googleCookie, flow.binding, { ...cookieOptions, maxAge: GOOGLE_FLOW_TTL })
+    return res.json({ authorizationUrl: google.authorization(flow) })
+  })
+  // Cross-site top-level navigation intentionally bypasses the GET Origin gate;
+  // one-use state, opaque binding cookie and existing initiating session authorize it.
+  router.get('/auth/google/callback', async (req, res) => {
+    res.set('Referrer-Policy', 'no-referrer')
+    const fail = (reason: 'cancelled' | 'error' | 'unavailable') => res.redirect(303, `/login?google=${reason}`)
+    if (!store.consumeGoogleAttempt('callback', req.socket.remoteAddress ?? 'unknown')) return fail('error')
+    try {
+      const query = googleCallbackQuery(req.originalUrl)
+      const flow = store.consumeGoogle(query.state, readCookie(req, googleCookie), sessionFor(req))
+      res.clearCookie(googleCookie, cookieOptions)
+      if (!googleAvailable) return fail('unavailable')
+      if (!flow) return fail('error')
+      if (query.error) return fail(query.error === 'access_denied' ? 'cancelled' : 'error')
+      const identity = await google.exchange(query.code!, flow, store.now)
+      const rotated = store.finishGoogle(flow, identity.subject, identity.email)
+      setSession(res, rotated)
+      return res.redirect(303, safeGoogleReturnPath(flow.return_to))
+    } catch { return fail('error') }
+  })
 
   router.get('/auth/session', (req, res) => {
     if (!allowedOrigin(req, false)) return res.status(403).json({ error: 'Requisição não autorizada.' })
