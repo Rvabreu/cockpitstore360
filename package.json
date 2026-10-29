@@ -2,6 +2,9 @@
   "name": "cockpit-store-360",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "imports": {
     "#/*": "./src/*"
   },
@@ -11,6 +14,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "node server.js",
+    "typecheck": "tsc --noEmit",
+    "auth:provision": "node src/server/provision.ts",
     "test": "vitest run"
   },
   "dependencies": {

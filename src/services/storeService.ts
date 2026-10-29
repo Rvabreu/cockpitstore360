@@ -1,4 +1,5 @@
 import type { OrderEvent, OrderWithEvents, Product } from '../types/store'
+import { csrfFetch } from './authService'
 
 // R3-3: pinned localStorage keys. The API is the source of truth; successful
 // responses are mirrored to these keys and read back only when the API fails.
@@ -211,7 +212,9 @@ export async function loadOrderApi(id: string): Promise<OrderWithEvents> {
 
 export async function advanceOrderApi(id: string): Promise<OrderWithEvents> {
   try {
-    const res = await fetch(`/api/orders/${encodeURIComponent(id)}/advance`, { method: 'POST' })
+    const res = await csrfFetch(`/api/orders/${encodeURIComponent(id)}/advance`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    })
     if (!res.ok) throw new Error(`HTTP error ${res.status}`)
     const data = (await res.json()) as OrderWithEvents
     saveOrder(data)

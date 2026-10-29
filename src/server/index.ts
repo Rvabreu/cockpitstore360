@@ -1,86 +1,118 @@
 import express from 'express'
-import path from 'node:path'
-import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } from './db'
+import type { ErrorRequestHandler, Request, Response } from 'express'
+import { timingSafeEqual } from 'node:crypto'
+import { AuthStore, authConfig, validEmail, validPassword } from './auth.ts'
+import type { Session } from './auth.ts'
+import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } from './db.ts'
 
 const NOT_FOUND_MESSAGE = 'Pedido não localizado neste ambiente de demonstração.'
+const payload = (body: unknown, keys: string[]) => body !== null && typeof body === 'object' &&
+  !Array.isArray(body) && Object.keys(body).length === keys.length && keys.every((key) => Object.hasOwn(body, key))
+const normalizeId = (raw: string) => raw.replace(/^#/, '').trim().toUpperCase()
+const view = (session: Session) => ({ user: session.user_id === null ? null : { authenticated: true }, csrfToken: session.csrf })
 
-/** Normalize a path order id: decode, strip leading '#', trim, uppercase. */
-function normalizeId(raw: string): string {
-  let value = raw
-  try {
-    value = decodeURIComponent(raw)
-  } catch {
-    value = raw
-  }
-  return value.replace(/^#/, '').trim().toUpperCase()
+function readCookie(req: Request, name: string) {
+  const values = (req.headers.cookie ?? '').split(';').map((part) => part.trim()).filter((part) => part.startsWith(`${name}=`))
+  // Ambiguous duplicate cookies are not trusted.
+  return values.length === 1 ? values[0].slice(name.length + 1) : undefined
 }
 
-export function createApiRouter() {
+export function createApiRouter(options: { store?: AuthStore; config?: ReturnType<typeof authConfig> } = {}) {
+  const config = options.config ?? authConfig()
+  const store = options.store ?? new AuthStore()
   const router = express.Router()
+  const sessionFor = (req: Request) => store.session(readCookie(req, config.cookieName))
+  const sendSession = (res: Response, rotated: ReturnType<AuthStore['rotate']>) => {
+    res.cookie(config.cookieName, rotated.raw, { httpOnly: true, sameSite: 'lax', secure: config.secure, path: '/', maxAge: rotated.session.expires_at - store.now() })
+    return res.json(view(rotated.session))
+  }
+  const allowedOrigin = (req: Request, mutation: boolean) => {
+    const origin = req.get('origin')
+    const site = req.get('sec-fetch-site')
+    if (site && !['same-origin', 'none'].includes(site)) return false
+    if (origin) return origin === config.origin
+    // Browsers omit Origin on same-origin GET; verify authority + Fetch Metadata
+    // or exact Referer. Mutations always require the configured Origin.
+    if (mutation) return false
+    if (req.get('host') !== new URL(config.origin).host) return false
+    if (site === 'same-origin' || site === 'none') return true
+    try { return new URL(req.get('referer') ?? '').origin === config.origin } catch { return false }
+  }
 
-  // GET /api/products
-  router.get('/products', (_req, res) => {
-    try {
-      res.json(getAllProducts())
-    } catch (err: any) {
-      res.status(500).json({ error: err.message })
-    }
+  router.use((_req, res, next) => {
+    res.set({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' })
+    next()
   })
+  // Every current and future API mutation passes this gate before parsing JSON.
+  router.use((req, res, next) => {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next()
+    const session = sessionFor(req)
+    const token = req.get('x-csrf-token') ?? ''
+    if (!allowedOrigin(req, true) || !session || !/^[A-Za-z0-9_-]{43}$/.test(token) ||
+        !timingSafeEqual(Buffer.from(token), Buffer.from(session.csrf))) {
+      return res.status(403).json({ error: 'Requisição não autorizada.' })
+    }
+    if (!req.is('application/json')) return res.status(415).json({ error: 'Envie JSON.' })
+    next()
+  })
+  router.use(express.json({ limit: '4kb', strict: true }))
 
-  // GET /api/orders/:id
+  router.get('/auth/session', (req, res) => {
+    if (!allowedOrigin(req, false)) return res.status(403).json({ error: 'Requisição não autorizada.' })
+    const session = sessionFor(req)
+    if (!session && !store.consumeAnonymous(req.socket.remoteAddress ?? 'unknown')) {
+      res.set('Retry-After', '900')
+      return res.status(429).json({ error: 'Muitas tentativas. Aguarde e tente novamente.' })
+    }
+    return session ? res.json(view(session)) : sendSession(res, store.rotate(undefined))
+  })
+  router.post('/auth/login', async (req, res) => {
+    if (!payload(req.body, ['email', 'password']) || !validEmail(req.body.email) || !validPassword(req.body.password)) {
+      return res.status(400).json({ error: 'Dados de acesso inválidos.' })
+    }
+    if (!store.consumeAttempt(req.body.email, req.socket.remoteAddress ?? 'unknown')) {
+      res.set('Retry-After', '900')
+      return res.status(429).json({ error: 'Muitas tentativas. Aguarde e tente novamente.' })
+    }
+    const session = sessionFor(req)
+    const id = await store.authenticate(req.body.email, req.body.password)
+    if (id === undefined) return res.status(429).json({ error: 'Servidor ocupado. Aguarde e tente novamente.' })
+    if (id === null) return res.status(401).json({ error: 'E-mail ou senha inválidos.' })
+    if (!session || !sessionFor(req)) return res.status(403).json({ error: 'Requisição não autorizada.' })
+    return sendSession(res, store.rotate(session, id))
+  })
+  router.post('/auth/logout', (req, res) => {
+    if (!payload(req.body, [])) return res.status(400).json({ error: 'Dados inválidos.' })
+    return sendSession(res, store.rotate(sessionFor(req)))
+  })
+  router.get('/products', (_req, res) => res.json(getAllProducts()))
   router.get('/orders/:id', (req, res) => {
-    try {
-      const order = getOrderWithEvents(normalizeId(req.params.id))
-      if (!order) {
-        return res.status(404).json({ error: NOT_FOUND_MESSAGE })
-      }
-      res.json(order)
-    } catch (err: any) {
-      res.status(500).json({ error: err.message })
-    }
+    const order = getOrderWithEvents(normalizeId(req.params.id))
+    return order ? res.json(order) : res.status(404).json({ error: NOT_FOUND_MESSAGE })
   })
-
-  // POST /api/orders/:id/advance
   router.post('/orders/:id/advance', (req, res) => {
-    try {
-      const order = advanceOrderStep(normalizeId(req.params.id))
-      if (!order) {
-        return res.status(404).json({ error: NOT_FOUND_MESSAGE })
-      }
-      res.json(order)
-    } catch (err: any) {
-      res.status(500).json({ error: err.message })
-    }
+    if (!payload(req.body, [])) return res.status(400).json({ error: 'Dados inválidos.' })
+    const order = advanceOrderStep(normalizeId(req.params.id))
+    return order ? res.json(order) : res.status(404).json({ error: NOT_FOUND_MESSAGE })
   })
-
-  // POST /api/reset-seed
-  router.post('/reset-seed', (_req, res) => {
-    try {
-      seedDatabase()
-      res.json({
-        success: true,
-        products: getAllProducts(),
-        order: getOrderWithEvents('CS-2048'),
-      })
-    } catch (err: any) {
-      res.status(500).json({ error: err.message })
-    }
+  router.post('/reset-seed', (req, res) => {
+    if (!payload(req.body, [])) return res.status(400).json({ error: 'Dados inválidos.' })
+    seedDatabase()
+    res.json({ success: true, products: getAllProducts(), order: getOrderWithEvents('CS-2048') })
   })
-
+  router.use((_req, res) => res.status(404).json({ error: 'Endpoint não encontrado.' }))
+  const errors: ErrorRequestHandler = (err, _req, res, _next) => {
+    const status = err.type === 'entity.too.large' ? 413 : err.type === 'entity.parse.failed' || err instanceof URIError ? 400 : 500
+    res.status(status).json({ error: status === 500 ? 'Erro interno no servidor.' : 'JSON inválido ou excessivo.' })
+  }
+  router.use(errors)
   return router
 }
 
-export function startStandaloneServer(port = 5000) {
+export function createApiApp(options: Parameters<typeof createApiRouter>[0] = {}) {
   const app = express()
-  app.use(express.json())
-  app.use('/api', createApiRouter())
-
-  const clientDist = path.resolve(process.cwd(), 'dist/client')
-  app.use(express.static(clientDist))
-
-  app.listen(port, () => {
-    console.log(`Standalone backend API running on http://localhost:${port}`)
-  })
-
+  app.disable('x-powered-by')
+  app.set('trust proxy', false)
+  app.use('/api', createApiRouter(options))
   return app
 }

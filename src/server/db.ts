@@ -1,16 +1,16 @@
 import Database from 'better-sqlite3'
 import path from 'node:path'
 import fs from 'node:fs'
-import type { OrderEvent, OrderWithEvents, Product } from '../types/store'
-import { INITIAL_PRODUCTS, INITIAL_ORDER } from '../services/storeService'
+import type { OrderEvent, OrderWithEvents, Product } from '../types/store.ts'
+import { INITIAL_PRODUCTS, INITIAL_ORDER } from './seed.ts'
 
 const AWAITING_DETAIL = 'Aguardando atualização'
 
-const DB_DIR = path.resolve(process.cwd(), 'data')
+const DB_PATH = path.resolve(process.env.STORE_DB_PATH ?? path.join(process.cwd(), 'data/store.db'))
+const DB_DIR = path.dirname(DB_PATH)
 if (!fs.existsSync(DB_DIR)) {
-  fs.mkdirSync(DB_DIR, { recursive: true })
+  fs.mkdirSync(DB_DIR, { recursive: true, mode: 0o700 })
 }
-const DB_PATH = path.join(DB_DIR, 'store.db')
 
 let dbInstance: InstanceType<typeof Database> | null = null
 
@@ -20,6 +20,7 @@ export function getDatabase(): InstanceType<typeof Database> {
   }
 
   const db = new Database(DB_PATH)
+  fs.chmodSync(DB_PATH, 0o600)
   db.pragma('journal_mode = WAL')
 
   // Schema creation
