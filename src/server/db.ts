@@ -6,11 +6,11 @@ import { INITIAL_PRODUCTS, INITIAL_ORDER } from '../services/storeService'
 
 const AWAITING_DETAIL = 'Aguardando atualização'
 
-const DB_DIR = path.resolve(process.cwd(), 'data')
+const DB_PATH = path.resolve(process.env.STORE_DB_PATH || path.join(process.cwd(), 'data/store.db'))
+const DB_DIR = path.dirname(DB_PATH)
 if (!fs.existsSync(DB_DIR)) {
   fs.mkdirSync(DB_DIR, { recursive: true })
 }
-const DB_PATH = path.join(DB_DIR, 'store.db')
 
 let dbInstance: InstanceType<typeof Database> | null = null
 

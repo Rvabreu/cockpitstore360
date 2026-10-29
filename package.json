@@ -8,10 +8,11 @@
   "scripts": {
     "dev": "vite dev --port 5000",
     "generate-routes": "tsr generate",
-    "build": "vite build",
+    "build": "vite build && node src/server/build.js",
     "preview": "vite preview",
     "start": "node server.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:production": "node --test src/server/production.check.js"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
