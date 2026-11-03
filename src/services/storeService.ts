@@ -8,6 +8,7 @@ const DATA_CHANGE_EVENT = 'cockpit_store_data_change'
 
 const NOT_FOUND_MESSAGE = 'Pedido não localizado neste ambiente de demonstração.'
 const FOUND_MESSAGE = 'Pedido CS-2048 encontrado. Os dados exibidos são fictícios.'
+const CONNECTION_ERROR_MESSAGE = 'Não foi possível consultar o pedido. Verifique sua conexão e tente novamente.'
 const AWAITING_DETAIL = 'Aguardando atualização'
 
 export const SEED_ORDER_ID = 'CS-2048'
@@ -53,8 +54,7 @@ export const SEED_ORDER_EVENTS: Array<{ title: string; detail: string }> = [
 
 /**
  * Build the derived OrderWithEvents shape (status + displayDetail + statusLabel)
- * from the raw order fields. Shared by the seed constant and the offline advance
- * fallback so the derivation never drifts from the server.
+ * from the raw order fields for the demonstrative seed.
  */
 export function buildOrderWithEvents(params: {
   id: string
@@ -196,12 +196,12 @@ export async function fetchProductsApi(): Promise<Product[]> {
   }
 }
 
-export async function loadOrderApi(id: string): Promise<OrderWithEvents> {
+export async function loadOrderApi(id: string, shouldPersist: () => boolean = () => true): Promise<OrderWithEvents> {
   try {
     const res = await fetch(`/api/orders/${encodeURIComponent(id)}`)
     if (!res.ok) throw new Error(`HTTP error ${res.status}`)
     const data = (await res.json()) as OrderWithEvents
-    saveOrder(data)
+    if (shouldPersist()) saveOrder(data)
     return data
   } catch (e) {
     console.warn(`API /api/orders/${id} unavailable, using fallback data:`, e)
@@ -210,37 +210,17 @@ export async function loadOrderApi(id: string): Promise<OrderWithEvents> {
 }
 
 export async function advanceOrderApi(id: string): Promise<OrderWithEvents> {
-  try {
-    const res = await fetch(`/api/orders/${encodeURIComponent(id)}/advance`, { method: 'POST' })
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`)
-    const data = (await res.json()) as OrderWithEvents
-    saveOrder(data)
-    return data
-  } catch (e) {
-    console.warn(`API advance ${id} failed, computing next step locally:`, e)
-    const current = getStoredOrder()
-    const eventCount = current.events.length
-    const nextStep = current.currentStep >= eventCount - 1 ? 0 : current.currentStep + 1
-    const next = buildOrderWithEvents({
-      id: current.id,
-      productId: current.productId,
-      productName: current.productName,
-      variant: current.variant,
-      quantity: current.quantity,
-      total: current.total,
-      placedAt: current.placedAt,
-      currentStep: nextStep,
-      events: current.events.map((ev) => ({ title: ev.title, detail: ev.detail })),
-    })
-    saveOrder(next)
-    return next
-  }
+  const res = await fetch(`/api/orders/${encodeURIComponent(id)}/advance`, { method: 'POST' })
+  if (!res.ok) throw new Error(`HTTP error ${res.status}`)
+  const data = (await res.json()) as OrderWithEvents
+  saveOrder(data)
+  return data
 }
 
 /**
  * Validation-only lookup (useStore() contract): never swaps the displayed order,
- * only returns an { ok, message } pair for the search box. The two pt-BR strings
- * are identical whether served by the API or the offline fallback.
+ * only returns an { ok, message } pair for the search box. A failed request must
+ * never be treated as proof that an order exists in the backend.
  */
 export async function getOrder(id: string): Promise<{ ok: boolean; message: string }> {
   const normalized = normalizeOrderId(id)
@@ -254,10 +234,7 @@ export async function getOrder(id: string): Promise<{ ok: boolean; message: stri
     }
     throw new Error(`HTTP error ${res.status}`)
   } catch (e) {
-    console.warn(`API lookup ${normalized} failed, using offline validation:`, e)
-    if (normalized === SEED_ORDER_ID) {
-      return { ok: true, message: FOUND_MESSAGE }
-    }
-    return { ok: false, message: NOT_FOUND_MESSAGE }
+    console.warn(`API lookup ${normalized} failed:`, e)
+    return { ok: false, message: CONNECTION_ERROR_MESSAGE }
   }
 }

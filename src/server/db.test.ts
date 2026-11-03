@@ -4,23 +4,24 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-// db.ts resolves its data/ dir from process.cwd() at import time and keeps a
-// singleton connection, so we point cwd at a fresh temp dir BEFORE importing it.
+// Each test file uses its own SQLite file, without changing the worker's cwd.
 let tmpDir: string
-const originalCwd = process.cwd()
+const originalDbPath = process.env.STORE_DB_PATH
 
 let db: typeof import('./db')
 
 beforeAll(async () => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-store-db-'))
-  process.chdir(tmpDir)
+  process.env.STORE_DB_PATH = path.join(tmpDir, 'store.db')
   db = await import('./db')
   // Force seeding on the fresh DB.
   db.getDatabase()
 })
 
 afterAll(() => {
-  process.chdir(originalCwd)
+  db?.getDatabase().close()
+  if (originalDbPath === undefined) delete process.env.STORE_DB_PATH
+  else process.env.STORE_DB_PATH = originalDbPath
   fs.rmSync(tmpDir, { recursive: true, force: true })
 })
 

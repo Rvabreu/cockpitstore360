@@ -1,22 +1,15 @@
 import express from 'express'
-import path from 'node:path'
-import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } from './db'
+import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } from './db.ts'
 
 const NOT_FOUND_MESSAGE = 'Pedido não localizado neste ambiente de demonstração.'
 
-/** Normalize a path order id: decode, strip leading '#', trim, uppercase. */
+/** Express already decodes the path parameter exactly once. */
 function normalizeId(raw: string): string {
-  let value = raw
-  try {
-    value = decodeURIComponent(raw)
-  } catch {
-    value = raw
-  }
-  return value.replace(/^#/, '').trim().toUpperCase()
+  return raw.trim().replace(/^#/, '').trim().toUpperCase()
 }
 
 export function createApiRouter() {
-  const router = express.Router()
+  const router = express.Router({ caseSensitive: true, strict: true })
 
   // GET /api/products
   router.get('/products', (_req, res) => {
@@ -67,20 +60,23 @@ export function createApiRouter() {
     }
   })
 
+  router.use((_req, res) => {
+    res.status(404).json({ error: 'Endpoint não encontrado' })
+  })
+
+  // Invalid URL encodings must also produce JSON in both transports.
+  router.use((err: Error & { status?: number }, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    res.status(err.status === 400 ? 400 : 500).json({
+      error: err.status === 400 ? 'Identificador de pedido inválido.' : 'Erro interno no servidor',
+    })
+  })
+
   return router
 }
 
-export function startStandaloneServer(port = 5000) {
+export function createApiApp() {
   const app = express()
-  app.use(express.json())
+  app.set('case sensitive routing', true)
   app.use('/api', createApiRouter())
-
-  const clientDist = path.resolve(process.cwd(), 'dist/client')
-  app.use(express.static(clientDist))
-
-  app.listen(port, () => {
-    console.log(`Standalone backend API running on http://localhost:${port}`)
-  })
-
   return app
 }
