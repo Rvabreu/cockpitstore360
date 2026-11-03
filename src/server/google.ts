@@ -7,7 +7,7 @@ import type { GoogleFlow } from './auth.ts'
 const AUTHORIZE = 'https://accounts.google.com/o/oauth2/v2/auth'
 const TOKEN = 'https://oauth2.googleapis.com/token'
 const JWKS = 'https://www.googleapis.com/oauth2/v3/certs'
-const RETURN_PATHS = new Set(['/', '/#colecao', '/#pedidos', '/#fluxo'])
+const RETURN_PATHS = new Set(['/', '/#colecao', '/#pedidos', '/#fluxo', '/black-friday', '/promocoes-black-friday'])
 export const safeGoogleReturnPath = (value: string) => RETURN_PATHS.has(value) ? value : '/'
 
 export function googleConfig(env: NodeJS.ProcessEnv = process.env) {

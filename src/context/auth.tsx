@@ -7,10 +7,11 @@ type AuthContextValue = {
   user: AuthSession['user']
   loading: boolean
   error: string | null
-  pending: 'login' | 'logout' | null
+  pending: 'login' | 'logout' | 'otp' | null
   refresh: () => Promise<void>
   login: (email: string, password: string) => Promise<boolean>
   logout: () => Promise<boolean>
+  verifyBlackFridayOtp: (email: string, code: string) => Promise<boolean>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -39,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { void refresh() }, [])
 
-  async function mutate(action: 'login' | 'logout', email = '', password = '') {
+  async function mutate(action: 'login' | 'logout' | 'otp', email = '', password = '') {
     if (busy.current) return false
     busy.current = true
     setPending(action)
@@ -47,11 +48,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const session = action === 'login'
         ? await authService.login(email, password)
-        : await authService.logout()
+        : action === 'otp' ? await authService.verifyBlackFridayOtp(email, password) : await authService.logout()
       setUser(session.user)
       return true
     } catch {
-      setError(action === 'login' ? authService.AUTH_ERROR : authService.LOGOUT_ERROR)
+      setError(action === 'login' ? authService.AUTH_ERROR : action === 'otp' ? authService.OTP_ERROR : authService.LOGOUT_ERROR)
       return false
     } finally {
       busy.current = false
@@ -62,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={{ user, loading, pending, error, refresh,
     login: (email, password) => mutate('login', email, password),
     logout: () => mutate('logout'),
+    verifyBlackFridayOtp: (email, code) => mutate('otp', email, code),
   }}>{children}</AuthContext.Provider>
 }
 

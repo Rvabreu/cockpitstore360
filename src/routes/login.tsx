@@ -22,7 +22,7 @@ function LoginPage() {
   const navigate = useNavigate()
   return <LoginScreen returnTo={returnTo} google={google} onAuthenticated={(path) => {
     const hash = path.split('#')[1]
-    void navigate({ to: '/', hash, replace: true })
+    void navigate({ to: path === '/promocoes-black-friday' ? '/promocoes-black-friday' : path === '/black-friday' ? '/black-friday' : '/', hash, replace: true })
   }} />
 }
 
@@ -170,6 +170,7 @@ export function LoginScreen({ returnTo = '/', google, onAuthenticated }: {
           </button>
           <p role="status" className="login-note login-trust"><ShieldCheck size={15} aria-hidden="true" />{busy ? 'Aguarde um instante.' : 'Sua senha não é armazenada neste navegador.'}</p>
         </form></>}
+        <a href="/black-friday#passe-vip" className="login-browse">Passe VIP Black Friday <ArrowRight size={14} aria-hidden="true" /></a>
         <a href="/#colecao" className="login-browse">Explorar o catálogo sem entrar <ArrowRight size={14} aria-hidden="true" /></a>
       </section>
     </div>

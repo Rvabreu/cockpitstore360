@@ -75,8 +75,28 @@ describe('authService', () => {
       expect(safeReturnPath(value)).toBe('/')
     },
   )
-  it.each(['/', '/#colecao', '/#pedidos', '/#fluxo'])('permits return %s', async (value) => {
+  it.each(['/', '/#colecao', '/#pedidos', '/#fluxo', '/black-friday', '/promocoes-black-friday'])('permits return %s', async (value) => {
     const { safeReturnPath } = await import('./authService')
     expect(safeReturnPath(value)).toBe(value)
   })
+  it('rotates shared CSRF after OTP verification and uses exact request payloads', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(session())
+      .mockResolvedValueOnce(new Response(JSON.stringify({ expiresAt: 123456789, demo: true, demoCode: '012345' })))
+      .mockResolvedValueOnce(session(true, 'otp-rotated')).mockResolvedValueOnce(session())
+    vi.stubGlobal('fetch', fetchMock)
+    const auth = await import('./authService')
+    expect(await auth.requestBlackFridayOtp('vip@example.com')).toEqual({ expiresAt: 123456789, demo: true, demoCode: '012345' })
+    expect((await auth.verifyBlackFridayOtp('vip@example.com', '012345')).user).toEqual({ authenticated: true })
+    await auth.logout()
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ email: 'vip@example.com' })
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ email: 'vip@example.com', code: '012345' })
+    expect(fetchMock.mock.calls[3][1].headers.get('X-CSRF-Token')).toBe('otp-rotated')
+  })
+  it.each([{ expiresAt: 'tomorrow', demo: true, demoCode: '123456' }, { expiresAt: 123, demo: true, demoCode: 'bad' }, { expiresAt: 123 }])(
+    'rejects malformed OTP payload %j', async (data) => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(session()).mockResolvedValueOnce(new Response(JSON.stringify(data))))
+      const auth = await import('./authService')
+      await expect(auth.requestBlackFridayOtp('vip@example.com')).rejects.toThrow(auth.OTP_ERROR)
+    },
+  )
 })

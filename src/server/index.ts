@@ -7,6 +7,8 @@ import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } fr
 import { GoogleOidc, googleCallbackQuery, safeGoogleReturnPath } from './google.ts'
 import type { GoogleOptions } from './google.ts'
 import { GOOGLE_FLOW_TTL } from './auth.ts'
+import { OtpError, OtpService } from './otp.ts'
+import type { OtpOptions } from './otp.ts'
 
 const NOT_FOUND_MESSAGE = 'Pedido não localizado neste ambiente de demonstração.'
 const payload = (body: unknown, keys: string[]) => body !== null && typeof body === 'object' &&
@@ -20,10 +22,11 @@ function readCookie(req: Request, name: string) {
   return values.length === 1 ? values[0].slice(name.length + 1) : undefined
 }
 
-export function createApiRouter(options: { store?: AuthStore; config?: ReturnType<typeof authConfig>; google?: GoogleOptions } = {}) {
+export function createApiRouter(options: { store?: AuthStore; config?: ReturnType<typeof authConfig>; google?: GoogleOptions; otp?: OtpOptions } = {}) {
   const config = options.config ?? authConfig()
   const store = options.store ?? new AuthStore()
   const google = new GoogleOidc(options.google)
+  const otp = new OtpService(store, options.otp)
   const googleAvailable = !!google.config && google.config.origin === config.origin
   const googleCookie = config.secure ? '__Host-cockpit-google' : 'cockpit-google'
   const cookieOptions = { httpOnly: true, sameSite: 'lax' as const, secure: config.secure, path: '/' }
@@ -66,6 +69,17 @@ export function createApiRouter(options: { store?: AuthStore; config?: ReturnTyp
     next()
   })
   router.use(express.json({ limit: '4kb', strict: true }))
+
+  router.post('/auth/otp/request', (req, res) => {
+    if (!payload(req.body, ['email']) || !validEmail(req.body.email)) return res.status(400).json({ error: 'Dados de acesso inválidos.' })
+    return res.json(otp.request(req.body.email, sessionFor(req)!, req.socket.remoteAddress ?? 'unknown'))
+  })
+  router.post('/auth/otp/verify', (req, res) => {
+    if (!payload(req.body, ['email', 'code']) || !validEmail(req.body.email) || typeof req.body.code !== 'string' || !/^[0-9]{6}$/.test(req.body.code)) {
+      return res.status(400).json({ error: 'Dados de acesso inválidos.' })
+    }
+    return sendSession(res, otp.verify(req.body.email, req.body.code, sessionFor(req)!, req.socket.remoteAddress ?? 'unknown'))
+  })
 
   router.get('/auth/google/status', (req, res) => {
     if (!allowedOrigin(req, false)) return res.status(403).json({ error: 'Requisição não autorizada.' })
@@ -149,6 +163,11 @@ export function createApiRouter(options: { store?: AuthStore; config?: ReturnTyp
   })
   router.use((_req, res) => res.status(404).json({ error: 'Endpoint não encontrado.' }))
   const errors: ErrorRequestHandler = (err, _req, res, _next) => {
+    if (err instanceof OtpError) {
+      if (err.retryAfter) res.set('Retry-After', String(err.retryAfter))
+      res.status(err.status).json({ error: err.message })
+      return
+    }
     const status = err.type === 'entity.too.large' ? 413 : err.type === 'entity.parse.failed' || err instanceof URIError ? 400 : 500
     res.status(status).json({ error: status === 500 ? 'Erro interno no servidor.' : 'JSON inválido ou excessivo.' })
   }

@@ -127,6 +127,15 @@ describe('login and authentication UI', () => {
     await waitFor(() => expect(redirect).toHaveBeenCalledWith('/#colecao'))
   })
 
+  it.each(['/black-friday', '/promocoes-black-friday'])('preserves %s return after password login and offers VIP shortcut', async (returnTo) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(response()).mockResolvedValueOnce(response(true)))
+    const redirect = mount(returnTo); await ready()
+    expect(screen.getByRole('link', { name: /Passe VIP Black Friday/ })).toHaveAttribute('href', '/black-friday#passe-vip')
+    fill(); fireEvent.click(screen.getByRole('button', { name: 'Entrar na conta' }))
+    await waitFor(() => expect(redirect).toHaveBeenCalledWith(returnTo))
+    expect(validateLoginSearch({ returnTo }).returnTo).toBe(returnTo)
+  })
+
   it('keeps session connected and prevents duplicate logout until the server confirms', async () => {
     let resolveLogout!: (value: Response) => void
     const logoutPromise = new Promise<Response>((resolve) => { resolveLogout = resolve })
@@ -174,6 +183,14 @@ describe('login and authentication UI', () => {
 })
 
 describe('Google login UI', () => {
+  it.each(['/black-friday', '/promocoes-black-friday'])('starts original Google access preserving %s return', async (returnTo) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response()))
+    mount(returnTo)
+    const button = screen.getByRole('button', { name: 'Continuar com Google' })
+    await waitFor(() => expect(button).toBeEnabled())
+    fireEvent.click(button)
+    expect(startGoogleLogin).toHaveBeenCalledWith(returnTo)
+  })
   it('waits for session and status, without blocking local login while status is pending', async () => {
     let resolveStatus!: (available: boolean) => void
     vi.mocked(googleAvailable).mockReturnValue(new Promise((resolve) => { resolveStatus = resolve }))

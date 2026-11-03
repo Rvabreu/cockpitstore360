@@ -16,7 +16,9 @@ export default function Header() {
         <span className="hidden xl:block text-[10px] tracking-[1.5px] font-extrabold text-[#ffba9e] bg-[#ff633b12] border border-[#ff633b55] rounded-[40px] px-[11px] py-2">
           DEMO FICTÍCIA
         </span>
-        <nav aria-label="Navegação principal" className="order-3 w-full min-[851px]:order-none min-[851px]:w-auto flex justify-between gap-4 min-[851px]:ml-auto">
+        <nav aria-label="Navegação principal" className="order-3 w-full xl:order-none xl:w-auto flex flex-wrap justify-between gap-x-4 gap-y-3 xl:ml-auto">
+          <a href="/black-friday" className="text-[13px] text-[#ff9b52] font-bold no-underline hover:text-white">Black Friday</a>
+          <a href="/promocoes-black-friday" className="text-[13px] text-[#e6c581] font-bold no-underline hover:text-white">Promoções BF</a>
           <a href="/#colecao" className="text-[13px] text-[#c0c0c5] font-semibold hover:text-white no-underline">
             Produtos
           </a>
@@ -27,7 +29,7 @@ export default function Header() {
             Como evoluímos
           </a>
         </nav>
-        <div className="ml-auto min-[851px]:ml-0 text-xs flex items-center gap-3">
+        <div className="ml-auto xl:ml-0 text-xs flex flex-wrap items-center gap-3">
           {loading ? <span role="status" className="text-[#a6a9b1]">Verificando sessão…</span> : user ? <>
             <a href="/login" className="text-[#57d4a5] font-semibold">Conta conectada</a>
             <button type="button" onClick={() => void logout()} disabled={pending !== null}
