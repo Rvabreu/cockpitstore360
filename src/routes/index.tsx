@@ -23,11 +23,13 @@ const FLOW_NODES: Array<{ marker: string; title: string; subtitle: string; highl
 ]
 
 function StorefrontPage() {
-  const { products, order, advanceOrder, getOrder } = useStore()
-  const [mode, setMode] = useState<Mode>('before')
+  const { products, order, advanceOrder, getOrder, isAdvancing } = useStore()
+  const [mode, setMode] = useState<Mode>('after')
   const [searchValue, setSearchValue] = useState('CS-2048')
   const [searchMsg, setSearchMsg] = useState('Ambiente demonstrativo com dados fictícios.')
   const [searchOk, setSearchOk] = useState(false)
+  const [advanceError, setAdvanceError] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
 
   const isLastStep = order.currentStep >= order.events.length - 1
   const statusBadge = mode === 'before' ? 'Pedido confirmado' : order.statusLabel
@@ -36,16 +38,27 @@ function StorefrontPage() {
       ? 'Sem rastreio, o cliente depende do suporte. A equipe perde tempo respondendo à mesma pergunta.'
       : 'Agora o cliente consulta o próprio pedido. A linha do tempo comunica cada etapa com clareza.'
 
-  const handleAdvance = () => {
-    if (mode !== 'after') return
-    void advanceOrder('CS-2048')
+  const handleAdvance = async () => {
+    if (mode !== 'after' || isAdvancing) return
+    setAdvanceError('')
+    try {
+      await advanceOrder(order.id)
+    } catch {
+      setAdvanceError('Não foi possível avançar o pedido. Verifique sua conexão e tente novamente.')
+    }
   }
 
   const handleSearch = async () => {
-    const value = normalizeOrderId(searchValue)
-    const result = await getOrder(value)
-    setSearchOk(result.ok)
-    setSearchMsg(result.message)
+    if (isSearching) return
+    setIsSearching(true)
+    try {
+      const value = normalizeOrderId(searchValue)
+      const result = await getOrder(value)
+      setSearchOk(result.ok)
+      setSearchMsg(result.message)
+    } finally {
+      setIsSearching(false)
+    }
   }
 
   const handleContact = () => {
@@ -135,7 +148,7 @@ function StorefrontPage() {
                 Da dúvida ao <span className="text-[#ff9c7a]">acompanhamento do pedido.</span>
               </h2>
               <p className="text-[#abaeb6] text-[14px] leading-[1.6] m-0 max-w-[670px]">
-                Compare a experiência original com a funcionalidade que será implementada pelo AI Cockpit.
+                Compare a experiência original com a funcionalidade implementada pelo AI Cockpit.
               </p>
             </div>
             <div
@@ -146,6 +159,7 @@ function StorefrontPage() {
               <button
                 type="button"
                 onClick={() => setMode('before')}
+                aria-pressed={mode === 'before'}
                 className={`border-0 rounded-[10px] px-4 py-[11px] text-[12px] font-extrabold ${
                   mode === 'before' ? 'bg-white text-[#121212]' : 'bg-transparent text-[#b7b8be]'
                 }`}
@@ -155,6 +169,7 @@ function StorefrontPage() {
               <button
                 type="button"
                 onClick={() => setMode('after')}
+                aria-pressed={mode === 'after'}
                 className={`border-0 rounded-[10px] px-4 py-[11px] text-[12px] font-extrabold ${
                   mode === 'after' ? 'bg-white text-[#121212]' : 'bg-transparent text-[#b7b8be]'
                 }`}
@@ -264,17 +279,18 @@ function StorefrontPage() {
               <div className="rounded-[17px] border border-[#34363b] p-[21px] mt-[17px] bg-[#1a1d20]">
                 <h4 className="m-0 mb-[9px] text-[14px]">🎛️ Simulador de operação</h4>
                 <p className="text-[#a4a7af] text-[12px] leading-[1.7]">
-                  Ative o estado “Depois da melhoria” e avance o pedido para demonstrar como a linha do tempo
+                  No estado “Depois da melhoria”, avance o pedido para demonstrar como a linha do tempo
                   responde a novos eventos.
                 </p>
                 <button
                   type="button"
                   onClick={handleAdvance}
-                  disabled={mode !== 'after'}
+                  disabled={mode !== 'after' || isAdvancing}
                   className="w-full px-[18px] py-[13px] rounded-[12px] border border-[#ff633b] bg-[#ff633b] text-[#160c08] font-bold text-[13px] transition hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                 >
-                  {isLastStep ? 'Reiniciar simulação ↺' : 'Avançar status do pedido →'}
+                  {isAdvancing ? 'Atualizando pedido…' : isLastStep ? 'Reiniciar simulação ↺' : 'Avançar status do pedido →'}
                 </button>
+                {advanceError && <p role="alert" className="text-[#ffac90] text-[12px] leading-[1.7] mt-3">{advanceError}</p>}
 
                 <div className="mt-[15px] text-[#a4a6ae] text-[11px] font-extrabold uppercase tracking-[1.4px]">
                   BUSCA POR PEDIDO
@@ -290,9 +306,10 @@ function StorefrontPage() {
                   <button
                     type="button"
                     onClick={handleSearch}
+                    disabled={isSearching}
                     className="px-[15px] py-[11px] rounded-[12px] border border-[#474a51] bg-[#212327] text-white font-bold text-[13px] whitespace-nowrap transition hover:-translate-y-px"
                   >
-                    Buscar
+                    {isSearching ? 'Buscando…' : 'Buscar'}
                   </button>
                 </div>
                 <p

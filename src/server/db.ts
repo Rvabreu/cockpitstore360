@@ -6,12 +6,6 @@ import { INITIAL_PRODUCTS, INITIAL_ORDER } from '../services/storeService'
 
 const AWAITING_DETAIL = 'Aguardando atualização'
 
-const DB_DIR = path.resolve(process.cwd(), 'data')
-if (!fs.existsSync(DB_DIR)) {
-  fs.mkdirSync(DB_DIR, { recursive: true })
-}
-const DB_PATH = path.join(DB_DIR, 'store.db')
-
 let dbInstance: InstanceType<typeof Database> | null = null
 
 export function getDatabase(): InstanceType<typeof Database> {
@@ -19,7 +13,9 @@ export function getDatabase(): InstanceType<typeof Database> {
     return dbInstance
   }
 
-  const db = new Database(DB_PATH)
+  const dbPath = process.env.STORE_DB_PATH || path.resolve(process.cwd(), 'data/store.db')
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true })
+  const db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
 
   // Schema creation

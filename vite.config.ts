@@ -5,11 +5,11 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { storeApiPlugin } from './src/server/apiPlugin'
+import { storeApiPlugin } from './src/server/apiPlugin.ts'
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
-  plugins: [storeApiPlugin(), devtools(), tailwindcss(), tanstackStart(), viteReact()],
+  plugins: [storeApiPlugin(), devtools(), tailwindcss(), tanstackStart({ server: { entry: 'server/entry.ts' } }), viteReact()],
 })
 
 export default config
