@@ -10,11 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BlackFridayRouteImport } from './routes/black-friday'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PromocoesBlackFridayRouteImport } from './routes/promocoes-black-friday'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlackFridayRoute = BlackFridayRouteImport.update({
+  id: '/black-friday',
+  path: '/black-friday',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -22,31 +29,44 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PromocoesBlackFridayRoute = PromocoesBlackFridayRouteImport.update({
+  id: '/promocoes-black-friday',
+  path: '/promocoes-black-friday',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/black-friday': typeof BlackFridayRoute
   '/login': typeof LoginRoute
+  '/promocoes-black-friday': typeof PromocoesBlackFridayRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/black-friday': typeof BlackFridayRoute
   '/login': typeof LoginRoute
+  '/promocoes-black-friday': typeof PromocoesBlackFridayRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/black-friday': typeof BlackFridayRoute
   '/login': typeof LoginRoute
+  '/promocoes-black-friday': typeof PromocoesBlackFridayRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login'
+  fullPaths: '/' | '/black-friday' | '/login' | '/promocoes-black-friday'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login'
-  id: '__root__' | '/' | '/login'
+  to: '/' | '/black-friday' | '/login' | '/promocoes-black-friday'
+  id: '__root__' | '/' | '/black-friday' | '/login' | '/promocoes-black-friday'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BlackFridayRoute: typeof BlackFridayRoute
   LoginRoute: typeof LoginRoute
+  PromocoesBlackFridayRoute: typeof PromocoesBlackFridayRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,6 +78,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/black-friday': {
+      id: '/black-friday'
+      path: '/black-friday'
+      fullPath: '/black-friday'
+      preLoaderRoute: typeof BlackFridayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -65,12 +92,21 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/promocoes-black-friday': {
+      id: '/promocoes-black-friday'
+      path: '/promocoes-black-friday'
+      fullPath: '/promocoes-black-friday'
+      preLoaderRoute: typeof PromocoesBlackFridayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BlackFridayRoute: BlackFridayRoute,
   LoginRoute: LoginRoute,
+  PromocoesBlackFridayRoute: PromocoesBlackFridayRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

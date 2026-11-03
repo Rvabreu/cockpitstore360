@@ -7,6 +7,14 @@ beforeEach(() => { vi.resetModules() })
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('googleAuthService', () => {
+  it('preserves promotions return path in the real Google start payload', async () => {
+    vi.stubGlobal('window', { location: { assign: vi.fn() } })
+    const fetchMock = vi.fn().mockResolvedValueOnce(json({ user: null, csrfToken: 'csrf' })).mockResolvedValueOnce(json({ authorizationUrl }))
+    vi.stubGlobal('fetch', fetchMock)
+    const google = await import('./googleAuthService')
+    await google.startGoogleLogin('/promocoes-black-friday')
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ returnTo: '/promocoes-black-friday' })
+  })
   it.each([true, false])('reads availability %s using same-origin no-store', async (available) => {
     const fetchMock = vi.fn().mockResolvedValue(json({ available }))
     vi.stubGlobal('fetch', fetchMock)

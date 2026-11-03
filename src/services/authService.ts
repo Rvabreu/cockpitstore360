@@ -78,7 +78,33 @@ export async function logout(): Promise<AuthSession> {
   }
 }
 
-const RETURN_PATHS = new Set(['/', '/#colecao', '/#pedidos', '/#fluxo'])
+export const OTP_ERROR = 'Não foi possível validar seu acesso VIP. Confira os dados ou tente novamente.'
+export type BlackFridayOtp = { expiresAt: number; demo: boolean; demoCode?: string }
+
+export async function requestBlackFridayOtp(email: string): Promise<BlackFridayOtp> {
+  try {
+    const response = await csrfFetch('/api/auth/otp/request', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }),
+    })
+    if (!response.ok) throw new Error(OTP_ERROR)
+    const data = await response.json()
+    if (!data || typeof data.expiresAt !== 'number' || !Number.isFinite(data.expiresAt) ||
+      typeof data.demo !== 'boolean' || (data.demo && (typeof data.demoCode !== 'string' || !/^\d{6}$/.test(data.demoCode)))) throw new Error(OTP_ERROR)
+    return { expiresAt: data.expiresAt, demo: data.demo, ...(data.demo ? { demoCode: data.demoCode } : {}) }
+  } catch { throw new Error(OTP_ERROR) }
+}
+
+export async function verifyBlackFridayOtp(email: string, code: string): Promise<AuthSession> {
+  try {
+    const session = await readSession(await csrfFetch('/api/auth/otp/verify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, code }),
+    }))
+    if (!session.user) throw new Error(OTP_ERROR)
+    return session
+  } catch { throw new Error(OTP_ERROR) }
+}
+
+const RETURN_PATHS = new Set(['/', '/#colecao', '/#pedidos', '/#fluxo', '/black-friday', '/promocoes-black-friday'])
 export function safeReturnPath(value: unknown): string {
   return typeof value === 'string' && RETURN_PATHS.has(value) ? value : '/'
 }

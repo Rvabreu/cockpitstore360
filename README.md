@@ -174,7 +174,8 @@ Contratos da UI (cookies same-origin, `cache: no-store`):
   anônima/atual, `Origin` do navegador e `X-CSRF-Token` em memória; retorna
   `{ authorizationUrl }`. A UI só navega para HTTPS em
   `accounts.google.com/o/oauth2/v2/auth`, sem credenciais, portas alternativas ou
-  fragmentos. O retorno permite somente `/`, `/#colecao`, `/#pedidos`, `/#fluxo`.
+  fragmentos. O retorno permite somente `/`, `/#colecao`, `/#pedidos`, `/#fluxo`,
+  `/black-friday` e `/promocoes-black-friday`.
 - `GET /api/auth/google/callback`: o servidor verifica o fluxo e redireciona ao
   retorno seguro ou `/login?google=cancelled|error|unavailable`. A rota valida
   esse enum e apresenta mensagens genéricas pt-BR, nunca conteúdo do provedor.
@@ -211,6 +212,103 @@ Verificação determinística de frontend, sem rede Google:
 Para validação real, use projeto/test user isolado: confira login, callback,
 restauração após reload, logout, cancelamento, config ausente e colisão com
 conta local; confirme a rotação de sessão e a ausência de segredos nos logs.
+
+### Black Friday e Passe VIP sem senha
+
+A rota **`/black-friday`** reúne a campanha em português, contador regressivo,
+ofertas demonstrativas e o **Passe VIP Black Friday** com código de acesso único
+de seis dígitos. O Header e `/login` oferecem atalhos. Login por senha e Google
+continuam disponíveis; qualquer sessão autenticada desbloqueia a vitrine VIP.
+Para voltar à campanha após o login original, use
+`/login?returnTo=%2Fblack-friday`. Esse retorno está na allowlist local e Google.
+
+A campanha demonstrativa termina em **28/11/2026 às 00:00 (UTC−03:00)**.
+Preços, descontos e estoque promocional são fictícios; não há compra, reserva
+de estoque ou checkout real. O bloqueio VIP é uma experiência de vitrine, não
+um mecanismo de autorização para recursos administrativos ou compras.
+
+Fluxo de demonstração local:
+
+1. Execute `npm ci` e `npm run dev`; abra `http://localhost:5000/black-friday`.
+2. Informe um e-mail novo, não usado por uma conta local ou Google existente.
+3. No modo demonstrativo, a página identifica explicitamente a simulação e
+   apresenta o código recebido do servidor. Insira os seis dígitos para entrar.
+4. Confira o Header conectado e as ofertas VIP liberadas, recarregue para
+   confirmar a sessão e use **Sair** para bloquear novamente a vitrine.
+
+Esta entrega implementa **OTP demonstrativo, sem transporte SMTP/envio de
+e-mail real**. Não são exigidas credenciais SMTP; para autenticação passwordless
+real será necessário integrar entrega verificada e uma política de identidade
+separada, sem reutilizar perfis demo.
+
+O preview é permitido com `NODE_ENV=development` ou com a flag explícita
+`AUTH_OTP_DEMO_PREVIEW=true`. **Isso não comprova posse do e-mail**: qualquer
+pessoa que veja o preview pode entrar no perfil demonstrativo. Nunca habilite
+essa flag em uma loja real ou exponha dados/permissões reais a contas demo.
+Em produção sem demo explicitamente habilitado, o endpoint fica indisponível
+(HTTP 503) e não retorna nenhum código. A flag tem padrão `false` em
+`.env.example`; a ativação deve ser deliberada em demonstrações hospedadas.
+Configurações de autenticação são exclusivas do servidor, nunca `VITE_*`.
+
+Contratos same-origin (cookie HttpOnly e `cache: no-store`):
+
+- `POST /api/auth/otp/request`, JSON estrito `{ email }`, solicita o desafio;
+  retorna `{ expiresAt, demo, demoCode? }` (epoch em milissegundos). O preview
+  `demoCode` só pode existir no modo demonstrativo controlado.
+- `POST /api/auth/otp/verify`, JSON estrito `{ email, code }`, confirma o código
+  e retorna o mesmo `{ user, csrfToken }` da autenticação original.
+- Ambos exigem sessão inicial, `Origin` exata e `X-CSRF-Token`; não guardam
+  código, sessão ou CSRF em localStorage/sessionStorage.
+
+O código é aleatório criptograficamente, armazenado somente como hash e tem
+validade de cinco minutos, até cinco tentativas e uso único. Reenvio invalida
+o código anterior; o desafio é ligado à sessão solicitante. A confirmação e
+a rotação da sessão são atômicas. Limites persistidos por e-mail/IP restringem
+pedidos e verificações sem alterar os limites do login por senha ou Google:
+cada ação permite 5/e-mail e 30/IP a cada 15 minutos (`Retry-After` informa os
+segundos restantes da janela, até 900).
+O segredo HMAC aleatório de 256 bits é persistido no banco de autenticação;
+proteja o banco, WAL/SHM e backups como segredos do servidor. Sua persistência
+permite verificar desafios após reinício sem armazenar códigos em texto puro.
+
+**Política de identidade:** o Passe VIP cria um perfil próprio sem senha válida.
+Não converte nem vincula silenciosamente uma conta local/Google com o mesmo
+e-mail. Para e-mail já cadastrado, use seu método de acesso original; o servidor
+mantém erros genéricos. Recuperação e vinculação autenticada de contas seguem
+fora do escopo. Faça backup de `AUTH_DB_PATH` antes do deploy; a migração SQLite
+é aditiva e preserva usuários, sessões e identidades existentes.
+
+### Catálogo de promoções da Black Friday
+
+`/promocoes-black-friday` reúne o catálogo completo disponível na loja, com
+navegação pelo Header e pela campanha `/black-friday`. Os filtros de categoria,
+faixa de desconto, ofertas relâmpago e exclusivas VIP são combináveis; a
+ordenação permite maior desconto, menor preço ou popularidade demonstrativa.
+Cada oferta informa preço original, preço promocional, percentual e economia
+em reais. Cupons e combos são simulações com condições explícitas, sem
+aplicação em checkout, cobrança ou reserva de estoque.
+
+O cupom demonstrativo **BLACK10** simula 10% extra em uma unidade de produto
+público com preço Black de pelo menos R$ 300,00, limitado a R$ 50,00. Não vale
+para itens VIP ou combos. O combo **Dupla de som** inclui uma unidade Orbit e
+uma Wave, com 5% extra sobre a soma dos preços Black; exige VIP por incluir
+Wave. Descontos adicionais são arredondados ao centavo mais próximo e não são
+cumulativos entre si. Ambos ficam indisponíveis após o prazo da campanha.
+Novos produtos do catálogo continuam visíveis, sem inventar desconto, estoque
+promocional ou popularidade quando não houver configuração demonstrativa.
+
+Os dados de popularidade e os benefícios promocionais não vêm de vendas reais.
+As ofertas relâmpago seguem o prazo da campanha, sem reiniciar o relógio a cada
+visita. Qualquer sessão autenticada libera a vitrine VIP; visitantes podem
+navegar ao Passe VIP OTP ou usar seu login original. Essa liberação é apenas
+visual e não concede autorização comercial.
+
+Verificação da entrega: `npm test`, `npm run typecheck` e `npm run build`.
+Os testes usam bancos SQLite temporários, relógio controlado e respostas
+mockadas no navegador, sem SMTP ou conexão externa com Google. Incluem desafio
+OTP, proteção Origin/CSRF, expiração, tentativas, replay, rotação da sessão e
+desbloqueio da vitrine. Uma demonstração de Google real continua dependendo das
+credenciais e test users descritos na seção anterior.
 
 ### Reconciliação com trabalhos paralelos
 
