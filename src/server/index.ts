@@ -1,6 +1,6 @@
 import express from 'express'
 import path from 'node:path'
-import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } from './db'
+import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } from './db.ts'
 
 const NOT_FOUND_MESSAGE = 'Pedido não localizado neste ambiente de demonstração.'
 
@@ -65,6 +65,10 @@ export function createApiRouter() {
     } catch (err: any) {
       res.status(500).json({ error: err.message })
     }
+  })
+
+  router.use((_req, res) => {
+    res.status(404).json({ error: 'Endpoint não encontrado' })
   })
 
   return router
