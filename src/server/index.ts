@@ -1,6 +1,6 @@
 import express from 'express'
 import path from 'node:path'
-import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } from './db'
+import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } from './db.ts'
 
 const NOT_FOUND_MESSAGE = 'Pedido não localizado neste ambiente de demonstração.'
 
