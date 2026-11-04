@@ -1,8 +1,10 @@
 import {
   HeadContent,
   Link,
+  Outlet,
   Scripts,
   createRootRoute,
+  useRouterState,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
@@ -38,6 +40,7 @@ export const Route = createRootRoute({
       },
     ],
   }),
+  component: RootLayout,
   shellComponent: RootDocument,
   notFoundComponent: NotFound,
 })
@@ -64,6 +67,18 @@ function NotFound() {
   )
 }
 
+function RootLayout() {
+  const isLoginPage = useRouterState({ select: (state) => state.location.pathname === '/login' })
+
+  return (
+    <>
+      {!isLoginPage && <Header />}
+      <Outlet />
+      {!isLoginPage && <Footer />}
+    </>
+  )
+}
+
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
@@ -72,9 +87,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="font-sans antialiased min-h-screen bg-[#08090b] text-[#f7f7f8] selection:bg-[#ff633b]/20">
-        <Header />
         {children}
-        <Footer />
         <TanStackDevtools
           config={{
             position: 'bottom-right',
