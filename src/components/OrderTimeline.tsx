@@ -1,4 +1,5 @@
 import type { OrderEvent, OrderEventStatus } from '../types/store'
+import { useLocale } from '../i18n/LocaleProvider'
 
 // Off-token hexes (do NOT snap to --store-*): done mint #53d9a4, current orange
 // #ff703f with its #ff703f22 ring, pending #555961/#17191e/#999.
@@ -21,6 +22,7 @@ function dotClasses(status: OrderEventStatus): string {
 }
 
 export default function OrderTimeline({ events }: { events: OrderEvent[] }) {
+  const { translateData } = useLocale()
   return (
     <div className="relative pl-[9px] mt-[17px]">
       {events.map((event, i) => (
@@ -30,8 +32,8 @@ export default function OrderTimeline({ events }: { events: OrderEvent[] }) {
           )}
           <span className={dotClasses(event.status)}>{DOT_GLYPH[event.status]}</span>
           <div>
-            <div className="text-[14px] font-semibold mt-[3px] mb-[5px]">{event.title}</div>
-            <div className="text-[11px] text-[#a0a4ad]">{event.displayDetail}</div>
+            <div className="text-[14px] font-semibold mt-[3px] mb-[5px]">{translateData(event.title)}</div>
+            <div className="text-[11px] text-[#a0a4ad]">{translateData(event.displayDetail)}</div>
           </div>
         </div>
       ))}
