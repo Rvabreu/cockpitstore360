@@ -5,11 +5,10 @@ import { hydrateRoot } from 'react-dom/client'
 import { useLayoutEffect } from 'react'
 import { BlackFridayPage, CampaignCountdown } from './black-friday'
 
-const orbit = 'Orbit Headphones Pro'
-const pulse = 'Pulse Watch S2'
-const wave = 'Wave Mini Speaker'
-const rhythm = 'Combo Ritmo & Imersão'
-const sound = 'Combo Som em Todo Lugar'
+const vip = 'Passaporte VIP PMI Summit DF'
+const combo = 'Combo Credencial + Workshop IA & Métodos Ágeis'
+const kit = 'Kit Oficial PMI Summit DF'
+const mentoring = 'Mentoria Express PMP / Liderança'
 const normalize = (text: string | null) => text?.replace(/\u00a0/g, ' ')
 const cardNames = () => screen.queryAllByRole('article').map((card) => within(card).getByRole('heading', { level: 3 }).textContent)
 const summary = () => within(screen.getByRole('complementary', { name: 'Resumo da simulação' }))
@@ -29,16 +28,17 @@ afterEach(() => {
 })
 
 describe('BlackFridayPage', () => {
-  it('renders three products and two combos with original/promo prices, percentage and savings', () => {
+  it('renders the event identity and four illustrative offers with exact prices and benefits', () => {
     render(<BlackFridayPage />)
-    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument()
-    expect(screen.getAllByRole('article')).toHaveLength(5)
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('BLACK FRIDAY PMI SUMMIT DF')
+    expect(screen.getByRole('img', { name: /Ilustração original de Brasília/ })).toBeInTheDocument()
+    expect(screen.getByText(/Gestão de projetos, liderança e inovação no Centro-Oeste/)).toBeInTheDocument()
+    expect(screen.getAllByRole('article')).toHaveLength(4)
     const prices = [
-      [orbit, '699,00', '489,30', '30', '209,70'],
-      [pulse, '899,00', '674,25', '25', '224,75'],
-      [wave, '349,00', '279,20', '20', '69,80'],
-      [rhythm, '1.598,00', '958,80', '40', '639,20'],
-      [sound, '1.048,00', '681,20', '35', '366,80'],
+      [vip, '1.200,00', '840,00', '30', '360,00'],
+      [combo, '1.800,00', '1.080,00', '40', '720,00'],
+      [kit, '399,00', '299,25', '25', '99,75'],
+      [mentoring, '650,00', '422,50', '35', '227,50'],
     ]
     for (const [name, original, promotional, percent, saving] of prices) {
       const card = screen.getByRole('heading', { name }).closest('article')!
@@ -47,98 +47,123 @@ describe('BlackFridayPage', () => {
       expect(within(card).getByText(`−${percent}%`)).toBeInTheDocument()
       expect(within(card).getByText(`Economize R$ ${saving}`)).toBeInTheDocument()
     }
-    expect(screen.getByText(`Inclui: ${orbit} + ${pulse}`)).toBeInTheDocument()
-    expect(screen.getByText(`Inclui: ${orbit} + ${wave}`)).toBeInTheDocument()
+    for (const benefit of ['2 dias de congresso', 'Palestras magnas', 'Networking VIP', 'Workshop IA & Métodos Ágeis', 'Aprendizado com PDUs', 'Mochila executiva tech', 'Garrafa térmica inteligente', 'Caderno smart', 'Credencial VIP', 'Mentoria individual', 'Líderes certificados']) {
+      expect(screen.getByText(benefit)).toBeInTheDocument()
+    }
+    expect(screen.getAllByText('Acumula PDUs')).toHaveLength(2)
+    expect(screen.getAllByText('Vagas Limitadas DF')).toHaveLength(2)
+    expect(screen.getAllByText('Exclusivo Black Friday')).toHaveLength(2)
+    expect(screen.getByText(/Simulação sem validação de filiação/)).toHaveTextContent(/benefícios.*lotes e preços são ilustrativos/)
+    expect(screen.queryByText(/Orbit|Pulse|Wave/)).not.toBeInTheDocument()
     expectTotal('Total simulado', 'R$ 0,00')
   })
 
-  it('combines category and flash filters and clears an empty combination', () => {
+  it('filters all categories and puts mentoring under Workshops & Cursos', () => {
     render(<BlackFridayPage />)
-    fireEvent.click(screen.getByRole('button', { name: 'Combos' }))
-    expect(cardNames()).toEqual([rhythm, sound])
-    fireEvent.click(screen.getByRole('checkbox', { name: /Somente/i }))
-    expect(cardNames()).toEqual([rhythm])
-    expect(screen.getByText('1 oferta encontrada')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Wearables' }))
-    expect(cardNames()).toEqual([])
-    expect(screen.getByText('0 ofertas encontradas')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Nenhuma oferta nesta combinação.' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }))
-    expect(screen.getByRole('checkbox', { name: /Somente/i })).not.toBeChecked()
+    for (const [category, name] of [['Combos', combo], ['Ingressos/Passaportes', vip], ['Workshops & Cursos', mentoring], ['Merchandising/Kits', kit]]) {
+      fireEvent.click(screen.getByRole('button', { name: category }))
+      expect(cardNames()).toEqual([name])
+      expect(screen.getByText('1 oferta encontrada')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: category })).toHaveAttribute('aria-pressed', 'true')
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Todos' }))
     expect(screen.getByRole('button', { name: 'Todos' })).toHaveAttribute('aria-pressed', 'true')
-    expect(cardNames()).toEqual([rhythm, sound, orbit, pulse, wave])
+    expect(cardNames()).toEqual([combo, mentoring, vip, kit])
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
   })
 
   it('changes the real card order for all three sorting options', () => {
     render(<BlackFridayPage />)
     const sorting = screen.getByRole('combobox', { name: 'Ordenar por' })
-    expect(cardNames()).toEqual([rhythm, sound, orbit, pulse, wave])
+    expect(cardNames()).toEqual([combo, mentoring, vip, kit])
     fireEvent.change(sorting, { target: { value: 'savings' } })
-    expect(cardNames()).toEqual([rhythm, sound, pulse, orbit, wave])
+    expect(cardNames()).toEqual([combo, vip, mentoring, kit])
     fireEvent.change(sorting, { target: { value: 'price' } })
-    expect(cardNames()).toEqual([wave, orbit, pulse, sound, rhythm])
+    expect(cardNames()).toEqual([kit, mentoring, vip, combo])
     fireEvent.change(sorting, { target: { value: 'discount' } })
-    expect(cardNames()).toEqual([rhythm, sound, orbit, pulse, wave])
+    expect(cardNames()).toEqual([combo, mentoring, vip, kit])
   })
 
   it('toggles each offer once, keeps filtered selections, and removes items from the summary', () => {
     render(<BlackFridayPage />)
-    fireEvent.click(screen.getByRole('button', { name: `Selecionar ${orbit}` }))
-    expect(screen.getByRole('button', { name: `Remover ${orbit}` })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: `Selecionar ${vip}` }))
+    expect(screen.getByRole('button', { name: `Remover ${vip}` })).toHaveAttribute('aria-pressed', 'true')
     expect(summary().getAllByRole('listitem')).toHaveLength(1)
-    expectTotal('Total simulado', 'R$ 489,30')
-    fireEvent.click(screen.getByRole('button', { name: `Remover ${orbit}` }))
+    expectTotal('Total simulado', 'R$ 840,00')
+    fireEvent.click(screen.getByRole('button', { name: `Remover ${vip}` }))
     expect(summary().queryByRole('list')).not.toBeInTheDocument()
     expectTotal('Total simulado', 'R$ 0,00')
-    fireEvent.click(screen.getByRole('button', { name: `Selecionar ${orbit}` }))
-    fireEvent.click(screen.getByRole('button', { name: `Selecionar ${rhythm}` }))
+    fireEvent.click(screen.getByRole('button', { name: `Selecionar ${vip}` }))
+    fireEvent.click(screen.getByRole('button', { name: `Selecionar ${combo}` }))
     expect(summary().getAllByRole('listitem')).toHaveLength(2)
-    expect(summary().getByText('1 kit · R$ 958,80')).toBeInTheDocument()
-    expectTotal('Preço original', 'R$ 2.297,00')
-    expectTotal('Subtotal promocional', 'R$ 1.448,10')
-    fireEvent.click(screen.getByRole('button', { name: 'Wearables' }))
-    expect(cardNames()).toEqual([pulse])
+    expect(summary().getByText('1 kit · R$ 1.080,00')).toBeInTheDocument()
+    expectTotal('Preço original', 'R$ 3.000,00')
+    expectTotal('Subtotal promocional', 'R$ 1.920,00')
+    fireEvent.click(screen.getByRole('button', { name: 'Workshops & Cursos' }))
+    expect(cardNames()).toEqual([mentoring])
     expect(summary().getAllByRole('listitem')).toHaveLength(2)
-    fireEvent.click(summary().getByRole('button', { name: `Remover ${orbit} do resumo` }))
+    fireEvent.click(summary().getByRole('button', { name: `Remover ${vip} do resumo` }))
     expect(summary().getAllByRole('listitem')).toHaveLength(1)
-    expectTotal('Total simulado', 'R$ 958,80')
-    fireEvent.click(summary().getByRole('button', { name: `Remover ${rhythm} do resumo` }))
+    expectTotal('Total simulado', 'R$ 1.080,00')
+    fireEvent.click(summary().getByRole('button', { name: `Remover ${combo} do resumo` }))
     expectTotal('Total simulado', 'R$ 0,00')
   })
 
   it('validates trimmed case-insensitive coupons, rounds cents, and replaces discounts without stacking', () => {
     render(<BlackFridayPage />)
-    fireEvent.click(screen.getByRole('button', { name: `Selecionar ${orbit}` }))
-    applyCoupon('  bf360  ')
-    expect(summary().getByText('Cupom BF360 aplicado: 5% de desconto extra.')).toBeInTheDocument()
-    expectTotal('Cupom BF360 (5%)', '− R$ 24,47')
-    expectTotal('Total simulado', 'R$ 464,83')
-    expect(summary().getByText('R$ 234,17')).toBeInTheDocument()
-    applyCoupon(' vIp10 ')
-    expect(summary().getByText('Cupom VIP10 aplicado: 10% de desconto extra.')).toBeInTheDocument()
-    expectTotal('Cupom VIP10 (10%)', '− R$ 48,93')
-    expectTotal('Total simulado', 'R$ 440,37')
-    fireEvent.click(screen.getByRole('button', { name: `Selecionar ${wave}` }))
-    expectTotal('Subtotal promocional', 'R$ 768,50')
-    expectTotal('Total simulado', 'R$ 691,65')
+    fireEvent.click(screen.getByRole('button', { name: `Selecionar ${mentoring}` }))
+    applyCoupon('  pmidf20  ')
+    expect(summary().getByText('Cupom PMIDF20 simulado: 20% de desconto extra, sem validação de elegibilidade.')).toBeInTheDocument()
+    expectTotal('Cupom PMIDF20 (20%)', '− R$ 84,50')
+    expectTotal('Total simulado', 'R$ 338,00')
+    expect(summary().getByText('R$ 312,00')).toBeInTheDocument()
+    applyCoupon(' sUmMiT360 ')
+    expect(summary().getByText('Cupom SUMMIT360 simulado: 15% de desconto extra, sem validação de elegibilidade.')).toBeInTheDocument()
+    expectTotal('Cupom SUMMIT360 (15%)', '− R$ 63,38')
+    expectTotal('Total simulado', 'R$ 359,12')
+    fireEvent.click(screen.getByRole('button', { name: `Selecionar ${kit}` }))
+    expectTotal('Subtotal promocional', 'R$ 721,75')
+    expectTotal('Total simulado', 'R$ 613,49')
+    expect(summary().getByText('R$ 435,51')).toBeInTheDocument()
   })
 
   it('removes an applied discount on edit and gives invalid-coupon feedback without silently discounting', () => {
     render(<BlackFridayPage />)
-    fireEvent.click(screen.getByRole('button', { name: `Selecionar ${orbit}` }))
-    applyCoupon('VIP10')
-    fireEvent.change(screen.getByRole('textbox', { name: 'Cupom de desconto' }), { target: { value: 'BF360' } })
-    expect(summary().getByText('Cupom alterado. Aplique novamente para validar; desconto removido.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: `Selecionar ${vip}` }))
+    applyCoupon('SUMMIT360')
+    fireEvent.change(screen.getByRole('textbox', { name: 'Cupom de desconto' }), { target: { value: 'PMIDF20' } })
+    expect(summary().getByText('Cupom alterado. Aplique novamente para simular; desconto removido.')).toBeInTheDocument()
     expectTotal('Cupom', '− R$ 0,00')
-    expectTotal('Total simulado', 'R$ 489,30')
-    applyCoupon('BF360 VIP10')
-    expect(summary().getByText('Cupom inválido. Use BF360 ou VIP10. Nenhum desconto de cupom aplicado.')).toBeInTheDocument()
+    expectTotal('Total simulado', 'R$ 840,00')
+    applyCoupon('PMIDF20 SUMMIT360')
+    expect(summary().getByText('Cupom inválido. Use PMIDF20 ou SUMMIT360. Nenhum desconto de cupom aplicado.')).toBeInTheDocument()
     expectTotal('Cupom', '− R$ 0,00')
-    expectTotal('Total simulado', 'R$ 489,30')
-    applyCoupon('BF360')
-    fireEvent.click(summary().getByRole('button', { name: `Remover ${orbit} do resumo` }))
+    expectTotal('Total simulado', 'R$ 840,00')
+    applyCoupon('PMIDF20')
+    fireEvent.click(summary().getByRole('button', { name: `Remover ${vip} do resumo` }))
     expectTotal('Total simulado', 'R$ 0,00')
-    expectTotal('Cupom BF360 (5%)', '− R$ 0,00')
+    expectTotal('Cupom PMIDF20 (20%)', '− R$ 0,00')
+  })
+
+  it('keeps the whole page SSR stable across dates, with no clock read', () => {
+    const now = vi.spyOn(Date, 'now')
+    const first = renderToString(<BlackFridayPage />)
+    now.mockReturnValue(Date.parse('2026-12-02T12:00:00Z'))
+    expect(renderToString(<BlackFridayPage />)).toBe(first)
+    expect(now).not.toHaveBeenCalled()
+    expect(first.match(/<strong>--<\/strong>/g)).toHaveLength(4)
+  })
+
+  it('retains simulation and transparency after expiration, without checkout', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-12-02T12:00:00Z'))
+    render(<BlackFridayPage />)
+    expect(screen.getByRole('timer', { name: 'Campanha encerrada' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: `Selecionar ${vip}` }))
+    applyCoupon('PMIDF20')
+    expectTotal('Total simulado', 'R$ 672,00')
+    expect(screen.getByText(/Simulação sem validação de filiação/)).toHaveTextContent(/não reserva vagas.*mesmo após o encerramento/)
+    expect(screen.queryByRole('button', { name: /comprar|pagar|reservar|checkout/i })).not.toBeInTheDocument()
   })
 })
 

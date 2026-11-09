@@ -6,7 +6,7 @@ describe('Header Black Friday navigation', () => {
   it('links to the Black Friday route and returns to the storefront through the brand', () => {
     render(<Header />)
 
-    expect(screen.getByRole('link', { name: 'Black Friday' })).toHaveAttribute('href', '/black-friday')
+    expect(screen.getByRole('link', { name: 'Black Friday PMI Summit DF' })).toHaveAttribute('href', '/black-friday')
     expect(screen.getByRole('link', { name: /Cockpit Store 360.*voltar à vitrine/i })).toHaveAttribute('href', '/')
   })
 
@@ -21,7 +21,9 @@ describe('Header Black Friday navigation', () => {
 
   it('keeps the campaign link outside hidden mobile markup', () => {
     render(<Header />)
-    const link = screen.getByRole('link', { name: 'Black Friday' })
+    const link = screen.getByRole('link', { name: 'Black Friday PMI Summit DF' })
+    expect(within(link).getByText('PMI Summit DF')).toHaveClass('block', 'sm:inline')
+    expect(link).toHaveClass('max-w-full')
 
     // jsdom does not evaluate Tailwind breakpoints: check markup, not viewport CSS.
     for (let element: HTMLElement | null = link; element; element = element.parentElement) {
