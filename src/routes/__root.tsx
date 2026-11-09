@@ -28,7 +28,27 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'COCKPIT STORE 360 | Demo AI Cockpit',
+        title: 'PMI SUMMIT DF 360 | Tech Experience',
+      },
+      {
+        name: 'description',
+        content: 'Conexões, projetos e inovação em Brasília no ecossistema PMI Summit DF. Experiência conceitual com AI Cockpit para pré-vendas e capacitação, não oficial do PMI.',
+      },
+      {
+        property: 'og:title',
+        content: 'PMI SUMMIT DF 360 | Tech Experience',
+      },
+      {
+        property: 'og:description',
+        content: 'Tecnologia em movimento: conexões, projetos e inovação em Brasília. Demonstração conceitual para o PMI Summit DF, não oficial do PMI.',
+      },
+      {
+        property: 'og:type',
+        content: 'website',
+      },
+      {
+        property: 'og:locale',
+        content: 'pt_BR',
       },
     ],
     links: [
