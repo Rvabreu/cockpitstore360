@@ -1,9 +1,10 @@
-# COCKPIT STORE 360
+# PMI SUMMIT DF 360
 
-Demo full-stack e-commerce storefront ("COCKPIT STORE 360") built with TanStack
-Start + SQLite (`better-sqlite3`). Dark-only single page: hero, product catalog,
-an order-tracking "antes/depois" demo, and the AI Cockpit flow. A fictional demo
-for pre-sales and training — not an official product.
+Conceptual tech experience for PMI Summit DF in Brasília, built with TanStack
+Start + SQLite (`better-sqlite3`). Dark-only single page: connections, projects
+and innovation, an illustrative product catalog, an order-tracking "antes/depois"
+demo, and the AI Cockpit / Lens flow for pre-sales and training.
+The experience and visual identity are conceptual and are not official PMI materials.
 
 ## Scripts
 
@@ -14,6 +15,7 @@ npm run dev            # Vite dev server on http://localhost:5000
 npm run build          # production build (dist/)
 npm start              # Express production server (serves dist/client + /api)
 npm test               # vitest run
+npm run typecheck      # tsc --noEmit
 ```
 
 ## API

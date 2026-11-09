@@ -55,8 +55,8 @@ function StorefrontPage() {
   return (
     <main id="inicio">
       {/* Hero */}
-      <section className="pt-[64px] pb-[30px]">
-        <div className="max-w-[1240px] mx-auto px-8">
+      <section className="pt-6 min-[851px]:pt-[64px] pb-[30px]">
+        <div className="max-w-[1240px] mx-auto px-[18px] min-[851px]:px-8">
           <div
             className="min-h-[406px] border border-[#303034] rounded-[28px] overflow-hidden flex items-center relative"
             style={{
@@ -67,19 +67,20 @@ function StorefrontPage() {
               backgroundRepeat: 'no-repeat',
             }}
           >
-            <div className="px-[58px] py-[60px] max-w-[650px] relative z-[2]">
-              <div className="text-[#ff916c] font-extrabold tracking-[2.6px] uppercase text-[11px]">
-                TECNOLOGIA EM MOVIMENTO
+            <div className="px-6 py-10 min-[851px]:px-[58px] min-[851px]:py-[60px] max-w-[720px] relative z-[2]">
+              <div className="text-[#ff916c] font-extrabold tracking-[1.8px] uppercase text-[11px] leading-[1.7]">
+                PMI SUMMIT DF • TECNOLOGIA EM MOVIMENTO
               </div>
-              <h1 className="text-[clamp(37px,4.2vw,62px)] tracking-[-2.8px] leading-[1.05] my-[18px]">
-                Conecte-se ao
+              <h1 className="text-[clamp(36px,4.2vw,62px)] tracking-[-1.8px] min-[851px]:tracking-[-2.8px] leading-[1.05] my-[18px]">
+                Conexões que{' '}
                 <br />
-                <span className="text-[#ff9c7a]">que vem depois.</span>
+                <span className="text-[#ff9c7a]">movem o futuro.</span>
               </h1>
               <p className="leading-[1.6] text-[#c0c2c7] text-[16px] max-w-[470px]">
-                A experiência de comprar tecnologia que você quer. E de acompanhar cada etapa até ela chegar.
+                Projetos, pessoas e inovação se encontram em Brasília no ecossistema PMI Summit DF.
+                Explore uma experiência demonstrativa de tecnologia que transforma ideias em entregas.
               </p>
-              <div className="flex gap-3 mt-[30px]">
+              <div className="flex flex-wrap gap-3 mt-[30px]">
                 <a
                   href="#pedidos"
                   className="px-[18px] py-[13px] rounded-[12px] border border-[#ff633b] bg-[#ff633b] text-[#160c08] font-bold text-[13px] transition hover:-translate-y-px no-underline"
@@ -101,14 +102,14 @@ function StorefrontPage() {
       {/* Catálogo */}
       <section className="py-10" id="colecao">
         <div className="max-w-[1240px] mx-auto px-8">
-          <div className="flex items-end justify-between mb-[23px] gap-5">
+          <div className="flex flex-col min-[851px]:flex-row items-start min-[851px]:items-end justify-between mb-[23px] gap-5">
             <div>
               <div className="text-[#ff916c] font-extrabold tracking-[2.6px] uppercase text-[11px]">
-                SELEÇÃO COCKPIT
+                SELEÇÃO PMI SUMMIT DF
               </div>
               <h2 className="text-[31px] tracking-[-1.2px] my-2">O futuro no seu setup.</h2>
               <p className="text-[#abaeb6] text-[14px] leading-[1.6] m-0 max-w-[670px]">
-                Produtos fictícios usados para contextualizar a jornada do cliente nesta demonstração.
+                Produtos fictícios para explorar a jornada do cliente na demonstração do PMI Summit DF.
               </p>
             </div>
             <span className="inline-flex text-[#ffb69d] border border-[#ff714545] bg-[#ff643b12] px-[10px] py-[6px] rounded-[40px] text-[11px] font-semibold whitespace-nowrap">
@@ -135,18 +136,18 @@ function StorefrontPage() {
                 Da dúvida ao <span className="text-[#ff9c7a]">acompanhamento do pedido.</span>
               </h2>
               <p className="text-[#abaeb6] text-[14px] leading-[1.6] m-0 max-w-[670px]">
-                Compare a experiência original com a funcionalidade que será implementada pelo AI Cockpit.
+                No contexto do PMI Summit DF, compare a experiência original com a melhoria demonstrada pelo AI Cockpit.
               </p>
             </div>
             <div
-              className="flex items-center gap-[6px] border border-[#38393d] bg-[#15171a] p-[5px] rounded-[14px] w-max"
+              className="flex items-center gap-[6px] border border-[#38393d] bg-[#15171a] p-[5px] rounded-[14px] w-max max-w-full"
               role="group"
               aria-label="Selecionar estado da aplicação"
             >
               <button
                 type="button"
                 onClick={() => setMode('before')}
-                className={`border-0 rounded-[10px] px-4 py-[11px] text-[12px] font-extrabold ${
+                className={`border-0 rounded-[10px] px-3 min-[851px]:px-4 py-[11px] text-[11px] min-[851px]:text-[12px] font-extrabold ${
                   mode === 'before' ? 'bg-white text-[#121212]' : 'bg-transparent text-[#b7b8be]'
                 }`}
               >
@@ -155,7 +156,7 @@ function StorefrontPage() {
               <button
                 type="button"
                 onClick={() => setMode('after')}
-                className={`border-0 rounded-[10px] px-4 py-[11px] text-[12px] font-extrabold ${
+                className={`border-0 rounded-[10px] px-3 min-[851px]:px-4 py-[11px] text-[11px] min-[851px]:text-[12px] font-extrabold ${
                   mode === 'after' ? 'bg-white text-[#121212]' : 'bg-transparent text-[#b7b8be]'
                 }`}
               >
@@ -167,7 +168,7 @@ function StorefrontPage() {
           <div className="grid grid-cols-1 min-[851px]:grid-cols-[1.14fr_.86fr] gap-[19px] mt-[25px]">
             {/* Order card */}
             <div className="bg-[#131519] border border-[#2b2d33] rounded-[22px] p-[29px]">
-              <div className="flex justify-between items-start gap-[15px] pb-5 border-b border-[#34363a]">
+              <div className="flex flex-col min-[851px]:flex-row justify-between items-start gap-[15px] pb-5 border-b border-[#34363a]">
                 <div>
                   <div className="text-[#a4a6ae] text-[11px] font-extrabold uppercase tracking-[1.4px]">
                     SEUS PEDIDOS / DETALHES
@@ -315,7 +316,8 @@ function StorefrontPage() {
           </div>
           <h2 className="text-[34px] tracking-[-1.4px] mt-2 mb-3">O fluxo por trás da melhoria.</h2>
           <p className="text-[#abaeb6] text-[14px] leading-[1.6] m-0 mb-[22px] max-w-[670px]">
-            Cada etapa tem um resultado verificável. Integrações são validadas no ambiente antes da apresentação.
+            Uma jornada de engenharia para demonstrar no PMI Summit DF: do contexto no Lens à entrega com AI Cockpit.
+            Cada etapa tem um resultado verificável, com integrações validadas antes da apresentação.
           </p>
           <div className="grid grid-cols-2 min-[851px]:grid-cols-4 gap-[11px]">
             {FLOW_NODES.map((node) => (

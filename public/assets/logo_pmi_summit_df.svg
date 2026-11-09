@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="432" height="112" viewBox="0 0 432 112" role="img" aria-labelledby="title desc">
+  <title id="title">PMI SUMMIT DF</title>
+  <desc id="desc">Identidade conceitual: vértices de um summit conectados sobre duas cúpulas inspiradas em Brasília. Lettering vetorial original, sem fontes externas. Não é uma marca oficial do PMI.</desc>
+  <defs>
+    <linearGradient id="summit" x1="8" y1="90" x2="82" y2="16" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff633b"/>
+      <stop offset="1" stop-color="#ffc09d"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#summit)" stroke-width="5" stroke-linejoin="round">
+    <path d="M8 70 42 18 78 70M27 70 59 30 94 70M42 18 59 30"/>
+    <path d="M8 81Q25 59 42 81ZM51 81Q70 102 89 81Z" stroke-width="3"/>
+  </g>
+  <g fill="#ffc09d">
+    <circle cx="42" cy="18" r="5"/>
+    <circle cx="59" cy="30" r="4"/>
+    <circle cx="8" cy="70" r="4"/>
+    <circle cx="94" cy="70" r="4"/>
+  </g>
+  <!-- PMI: custom geometric outlines -->
+  <g fill="#f7f7f8" fill-rule="evenodd">
+    <path d="M116 14H139L148 23V38L139 47H124V54H116ZM124 22V39H136L140 35V26L136 22Z"/>
+    <path d="M158 54V14H167L179 34 191 14H200V54H192V29L179 49 166 29V54Z"/>
+    <path d="M212 14H220V54H212Z"/>
+  </g>
+  <path d="M242 34H414" stroke="#ff875a" stroke-width="2" opacity=".55"/>
+  <path d="M394 24 404 34 394 44M408 24 418 34 408 44" fill="none" stroke="#ff875a" stroke-width="2"/>
+  <!-- SUMMIT DF: every glyph is a path, not live text -->
+  <g fill="#f7f7f8" fill-rule="evenodd">
+    <path d="M116 66H141V72H123V77H135L141 83V89L135 95H116V89H134V84H122L116 78Z"/>
+    <path d="M150 66H157V86L160 89H170L173 86V66H180V89L174 95H156L150 89Z"/>
+    <path d="M189 95V66H196L206 81 216 66H223V95H216V79L206 93 196 79V95Z"/>
+    <path d="M232 95V66H239L249 81 259 66H266V95H259V79L249 93 239 79V95Z"/>
+    <path d="M276 66H283V95H276Z"/>
+    <path d="M293 66H323V73H312V95H305V73H293Z"/>
+  </g>
+  <g fill="#ff9c7a" fill-rule="evenodd">
+    <path d="M343 66H362L372 76V85L362 95H343ZM350 73V88H359L365 82V79L359 73Z"/>
+    <path d="M382 66H411V73H389V79H407V86H389V95H382Z"/>
+  </g>
+</svg>
