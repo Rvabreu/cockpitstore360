@@ -24,7 +24,7 @@ export const Route = createRootRoute({
         title: 'PMI Summit Brasília | Conferência de Gestão, Inovação e Liderança',
       },
       { name: 'description', content: 'Conheça o PMI Summit Brasília: gestão de projetos, liderança, inovação e inteligência artificial. Explore trilhas, programação, inscrições e simule até 16 PDUs.' },
-      { name: 'theme-color', content: '#0a1128' },
+      { name: 'theme-color', content: '#071c16' },
       { property: 'og:title', content: 'PMI Summit Brasília | Projetos que transformam o futuro' },
       { property: 'og:description', content: 'Gestão de projetos, liderança e IA se encontram em Brasília. Confira a proposta de programação e planeje sua participação.' },
       { property: 'og:type', content: 'website' },
