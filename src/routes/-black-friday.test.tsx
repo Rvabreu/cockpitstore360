@@ -28,6 +28,13 @@ afterEach(() => {
 })
 
 describe('BlackFridayPage', () => {
+  it('offers demo login navigation without removing public offers and simulation links', () => {
+    render(<BlackFridayPage />)
+    expect(screen.getByRole('link', { name: 'Entrar' })).toHaveAttribute('href', '/black-friday/login')
+    expect(screen.getByRole('link', { name: 'Explorar ofertas' })).toHaveAttribute('href', '#ofertas')
+    expect(screen.getByRole('link', { name: 'Simular economia' })).toHaveAttribute('href', '#simulacao')
+  })
+
   it('renders the event identity and four illustrative offers with exact prices and benefits', () => {
     render(<BlackFridayPage />)
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('BLACK FRIDAY PMI SUMMIT DF')

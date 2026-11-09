@@ -111,7 +111,7 @@ export function BlackFridayPage() {
             <h1 id="bf-title">BLACK FRIDAY{' '}<br /><span>PMI SUMMIT DF</span></h1>
             <p className="bf-hero-slogan">Grandes projetos.<br />Novas conexões. <em>Mais impacto.</em></p>
             <p>Gestão de projetos, liderança e inovação no Centro-Oeste.<br />O seu próximo capítulo começa em Brasília/DF.</p>
-            <div className="bf-hero-actions"><a href="#ofertas" className="bf-button bf-button-primary">Explorar ofertas <ArrowDown size={16} /></a><a href="#simulacao" className="bf-button bf-button-secondary">Simular economia <ArrowUpRight size={16} /></a></div>
+            <div className="bf-hero-actions"><a href="#ofertas" className="bf-button bf-button-primary">Explorar ofertas <ArrowDown size={16} /></a><a href="#simulacao" className="bf-button bf-button-secondary">Simular economia <ArrowUpRight size={16} /></a><a href="/black-friday/login" className="bf-button bf-button-secondary">Entrar <ArrowUpRight size={16} /></a></div>
             <div className="bf-hero-note"><ShieldCheck size={14} />Campanha ilustrativa. Nenhuma compra será realizada.</div>
           </div>
           <div className="bf-hero-stamp" aria-label="Até 40% de desconto nas ofertas"><span>ATÉ</span><strong>40<small>%</small></strong><span>OFF / NA SELEÇÃO</span></div>
