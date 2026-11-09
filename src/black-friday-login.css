@@ -1,4 +1,4 @@
-.bf-login-page { --login-yellow: #ffdf00; --login-green: #009739; --login-blue: #002776; color: #ffffff; background: radial-gradient(ellipse at 5% 25%, #00973960, transparent 55%), #061c15; padding: 40px 0 72px; }
+.bf-login-page { --login-yellow: #ffdf00; --login-green: #009739; --login-blue: #002776; color: #ffffff; background: radial-gradient(ellipse at 5% 25%, #b91c1c60, transparent 55%), #300b10; padding: 40px 0 72px; }
 .bf-login-page * { box-sizing: border-box; }
 .bf-login-container { width: min(1120px, calc(100% - 64px)); margin: 0 auto; }
 .bf-login-page :is(a, button, input):focus-visible { outline: 2px solid var(--login-yellow); outline-offset: 4px; }
@@ -17,7 +17,7 @@
 .bf-login-art > span:not(.bf-login-orbit) { font-size: 9px; letter-spacing: 2px; color: #ffffff; }
 .bf-login-art strong { font-size: 12px; letter-spacing: 5px; }
 .bf-login-story > p.bf-login-public { font-size: 12px; color: #b7efc8; }
-.bf-login-card { padding: 38px; border: 1px solid var(--login-green); border-radius: 24px; background: linear-gradient(145deg, #003d29, #071c32 42%); box-shadow: 0 24px 70px #00000030; }
+.bf-login-card { padding: 38px; border: 1px solid var(--login-green); border-radius: 24px; background: linear-gradient(145deg, #641b23, #280c12 42%); box-shadow: 0 24px 70px #00000030; }
 .bf-login-card h2 { font-size: 38px; letter-spacing: -1.5px; margin: 14px 0 8px; }
 .bf-login-intro { color: #c9ded2; font-size: 14px; line-height: 1.6; margin: 0; }
 .bf-login-notice { display: flex; align-items: start; gap: 11px; margin: 24px 0; padding: 15px; border: 1px solid #00973980; background: #00973920; border-radius: 12px; }
@@ -26,7 +26,7 @@
 .bf-login-notice strong { display: block; color: #b7efc8; }
 .bf-login-field { margin-bottom: 20px; }
 .bf-login-field label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 9px; }
-.bf-login-field input { width: 100%; min-width: 0; min-height: 48px; color: #ffffff; background: #061426; border: 1px solid #537968; border-radius: 10px; padding: 13px 14px; font: inherit; font-size: 16px; }
+.bf-login-field input { width: 100%; min-width: 0; min-height: 48px; color: #ffffff; background: #1c080d; border: 1px solid #537968; border-radius: 10px; padding: 13px 14px; font: inherit; font-size: 16px; }
 .bf-login-field input::placeholder { color: #b8cebf; font-size: 13px; }
 .bf-login-field input[aria-invalid="true"] { border-color: #ff9eaa; }
 .bf-login-password { position: relative; }
