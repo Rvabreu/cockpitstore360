@@ -1,108 +1,126 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   BLACK_FRIDAY_DEADLINE, BLACK_FRIDAY_OFFERS, OFFER_CATEGORIES,
   calculateSummary, filterOffers, formatBRL, getCountdown, resolveCoupon,
 } from './blackFridayOffers'
 
-describe('Black Friday offer calculations', () => {
-  it('provides three individual products and two combos with coherent cent prices', () => {
+describe('PMI Summit DF local campaign', () => {
+  it('has four independent offers with exact calculated prices and benefits', () => {
     expect(BLACK_FRIDAY_OFFERS.map(({ id, originalCents, promotionalCents, discountPercent, savingsCents }) =>
       [id, originalCents, promotionalCents, discountPercent, savingsCents],
     )).toEqual([
-      ['prod-orbit', 69900, 48930, 30, 20970],
-      ['prod-pulse', 89900, 67425, 25, 22475],
-      ['prod-wave', 34900, 27920, 20, 6980],
-      ['combo-orbit-pulse', 159800, 95880, 40, 63920],
-      ['combo-orbit-wave', 104800, 68120, 35, 36680],
+      ['passaporte-vip', 120000, 84000, 30, 36000],
+      ['combo-ia-agil', 180000, 108000, 40, 72000],
+      ['kit-oficial', 39900, 29925, 25, 9975],
+      ['mentoria-express', 65000, 42250, 35, 22750],
     ])
-    expect(BLACK_FRIDAY_OFFERS.filter((offer) => offer.products.length === 1)).toHaveLength(3)
-    expect(BLACK_FRIDAY_OFFERS.filter((offer) => offer.category === 'Combos').map((offer) =>
-      offer.products.map((product) => product.id),
-    )).toEqual([['prod-orbit', 'prod-pulse'], ['prod-orbit', 'prod-wave']])
+    expect(BLACK_FRIDAY_OFFERS.map((offer) => offer.name)).toEqual([
+      'Passaporte VIP PMI Summit DF', 'Combo Credencial + Workshop IA & Métodos Ágeis',
+      'Kit Oficial PMI Summit DF', 'Mentoria Express PMP / Liderança',
+    ])
+    expect(BLACK_FRIDAY_OFFERS.map((offer) => offer.benefits)).toEqual([
+      ['2 dias de congresso', 'Palestras magnas', 'Networking VIP'],
+      ['Credencial para o congresso', 'Workshop IA & Métodos Ágeis', 'Aprendizado com PDUs'],
+      ['Mochila executiva tech', 'Garrafa térmica inteligente', 'Caderno smart', 'Credencial VIP'],
+      ['Mentoria individual', 'Líderes certificados', 'Foco em PMP e liderança'],
+    ])
     for (const offer of BLACK_FRIDAY_OFFERS) {
-      expect(offer.originalCents).toBe(offer.products.reduce((sum, product) => sum + Math.round(product.price * 100), 0))
-      expect(offer.promotionalCents).toBe(Math.round(offer.originalCents * (100 - offer.discountPercent) / 100))
+      expect(offer).not.toHaveProperty('products')
       expect(offer.savingsCents + offer.promotionalCents).toBe(offer.originalCents)
+      expect(offer.discountPercent).toBe((offer.savingsCents / offer.originalCents) * 100)
+      expect(offer.lot).toContain('ilustrativ')
     }
   })
 
-  it('formats cents as Brazilian reais, including zero and rounded cents', () => {
-    expect([0, 48930, 46483, 159800].map((cents) => formatBRL(cents).replace(/\u00a0/g, ' ')))
-      .toEqual(['R$ 0,00', 'R$ 489,30', 'R$ 464,83', 'R$ 1.598,00'])
+  it('does not load the audio store or fetch from the API', async () => {
+    vi.resetModules()
+    vi.doMock('./storeService', () => { throw new Error('Campaign must be independent') })
+    try {
+      const service = await import('./blackFridayOffers')
+      expect(service.BLACK_FRIDAY_OFFERS).toHaveLength(4)
+    } finally {
+      vi.doUnmock('./storeService')
+    }
   })
 
-  it('combines every category with the flash filter, including an empty result', () => {
-    expect(OFFER_CATEGORIES).toEqual(['Todos', 'Áudio imersivo', 'Wearables', 'Áudio conectado', 'Combos'])
-    expect(filterOffers('Todos', true, 'discount').map((offer) => offer.id))
-      .toEqual(['combo-orbit-pulse', 'prod-orbit', 'prod-wave'])
-    expect(filterOffers('Combos', false, 'discount').map((offer) => offer.id))
-      .toEqual(['combo-orbit-pulse', 'combo-orbit-wave'])
-    expect(filterOffers('Combos', true, 'discount').map((offer) => offer.id)).toEqual(['combo-orbit-pulse'])
-    expect(filterOffers('Áudio imersivo', true, 'discount').map((offer) => offer.id)).toEqual(['prod-orbit'])
-    expect(filterOffers('Áudio conectado', true, 'discount').map((offer) => offer.id)).toEqual(['prod-wave'])
-    expect(filterOffers('Wearables', true, 'discount')).toEqual([])
+  it('formats cents as Brazilian reais', () => {
+    expect([0, 29925, 120000].map((cents) => formatBRL(cents).replace(/\u00a0/g, ' ')))
+      .toEqual(['R$ 0,00', 'R$ 299,25', 'R$ 1.200,00'])
+  })
+
+  it('filters every category, with mentoring in Workshops & Cursos', () => {
+    expect(OFFER_CATEGORIES).toEqual(['Todos', 'Ingressos/Passaportes', 'Workshops & Cursos', 'Merchandising/Kits', 'Combos'])
+    expect(OFFER_CATEGORIES.map((category) => filterOffers(category, 'discount').map((offer) => offer.id)))
+      .toEqual([
+        ['combo-ia-agil', 'mentoria-express', 'passaporte-vip', 'kit-oficial'],
+        ['passaporte-vip'], ['mentoria-express'], ['kit-oficial'], ['combo-ia-agil'],
+      ])
   })
 
   it.each([
-    ['discount', ['combo-orbit-pulse', 'combo-orbit-wave', 'prod-orbit', 'prod-pulse', 'prod-wave']],
-    ['savings', ['combo-orbit-pulse', 'combo-orbit-wave', 'prod-pulse', 'prod-orbit', 'prod-wave']],
-    ['price', ['prod-wave', 'prod-orbit', 'prod-pulse', 'combo-orbit-wave', 'combo-orbit-pulse']],
-  ] as const)('sorts by %s without mutating the original catalog', (sort, expected) => {
+    ['discount', ['combo-ia-agil', 'mentoria-express', 'passaporte-vip', 'kit-oficial']],
+    ['savings', ['combo-ia-agil', 'passaporte-vip', 'mentoria-express', 'kit-oficial']],
+    ['price', ['kit-oficial', 'mentoria-express', 'passaporte-vip', 'combo-ia-agil']],
+  ] as const)('sorts by %s without mutating the catalog', (sort, expected) => {
     const original = BLACK_FRIDAY_OFFERS.map((offer) => offer.id)
-    expect(filterOffers('Todos', false, sort).map((offer) => offer.id)).toEqual(expected)
+    expect(filterOffers('Todos', sort).map((offer) => offer.id)).toEqual(expected)
     expect(BLACK_FRIDAY_OFFERS.map((offer) => offer.id)).toEqual(original)
   })
 
   it.each([
-    ['BF360', { code: 'BF360', percent: 5 }],
-    [' \tbf360\n', { code: 'BF360', percent: 5 }],
-    ['VIP10', { code: 'VIP10', percent: 10 }],
-    ['  vIp10  ', { code: 'VIP10', percent: 10 }],
-    ['', null], ['   ', null], ['BF360 VIP10', null], ['BF360X', null], ['VIP 10', null],
-  ])('validates the entire coupon input %j, accepting case and outer whitespace only', (input, expected) => {
+    ['PMIDF20', { code: 'PMIDF20', percent: 20 }],
+    [' \tpmidf20\n', { code: 'PMIDF20', percent: 20 }],
+    ['SUMMIT360', { code: 'SUMMIT360', percent: 15 }],
+    ['  sUmMiT360  ', { code: 'SUMMIT360', percent: 15 }],
+    ['', null], ['   ', null], ['PMIDF20 SUMMIT360', null], ['PMIDF20X', null],
+    ['PMI DF20', null], ['BF360', null], ['VIP10', null],
+  ])('normalizes only allowed coupon %j', (input, expected) => {
     expect(resolveCoupon(input as string)).toEqual(expected)
   })
 
-  it('returns a zero summary for an empty or unknown selection even with a coupon', () => {
+  it('returns zero for empty/unknown selection even with a coupon', () => {
     for (const ids of [[], ['unknown']]) {
-      expect(calculateSummary(ids, resolveCoupon('VIP10'))).toEqual({
+      expect(calculateSummary(ids, resolveCoupon('PMIDF20'))).toEqual({
         offers: [], originalCents: 0, subtotalCents: 0, couponDiscountCents: 0, totalCents: 0, savingsCents: 0,
       })
     }
   })
 
-  it('counts duplicate offers once and treats a combo as one kit, not extra individual items', () => {
-    const result = calculateSummary(['prod-orbit', 'prod-orbit', 'combo-orbit-pulse', 'unknown'], null)
-    expect(result.offers.map((offer) => offer.id)).toEqual(['prod-orbit', 'combo-orbit-pulse'])
-    expect(result).toMatchObject({ originalCents: 229700, subtotalCents: 144810, couponDiscountCents: 0, totalCents: 144810, savingsCents: 84890 })
+  it('counts duplicates once and treats the combo as one independent offer', () => {
+    const result = calculateSummary(['passaporte-vip', 'passaporte-vip', 'combo-ia-agil', 'unknown'], null)
+    expect(result.offers.map((offer) => offer.id)).toEqual(['passaporte-vip', 'combo-ia-agil'])
+    expect(result).toMatchObject({ originalCents: 300000, subtotalCents: 192000, couponDiscountCents: 0, totalCents: 192000, savingsCents: 108000 })
   })
 
-  it('rounds a half-cent coupon discount once and replaces rather than stacks coupons', () => {
-    expect(calculateSummary(['prod-orbit'], resolveCoupon('BF360'))).toMatchObject({
-      originalCents: 69900, subtotalCents: 48930, couponDiscountCents: 2447, totalCents: 46483, savingsCents: 23417,
+  it('calculates each coupon exactly on promo prices, replacing rather than stacking', () => {
+    expect(calculateSummary(['mentoria-express'], resolveCoupon('PMIDF20'))).toMatchObject({
+      originalCents: 65000, subtotalCents: 42250, couponDiscountCents: 8450, totalCents: 33800, savingsCents: 31200,
     })
-    expect(calculateSummary(['prod-orbit'], resolveCoupon('VIP10'))).toMatchObject({
-      subtotalCents: 48930, couponDiscountCents: 4893, totalCents: 44037, savingsCents: 25863,
+    expect(calculateSummary(['mentoria-express'], resolveCoupon('SUMMIT360'))).toMatchObject({
+      subtotalCents: 42250, couponDiscountCents: 6338, totalCents: 35912, savingsCents: 29088,
     })
-    expect(calculateSummary(['prod-orbit'], resolveCoupon('invalid'))).toMatchObject({ couponDiscountCents: 0, totalCents: 48930 })
+    expect(calculateSummary(['mentoria-express'], resolveCoupon('invalid'))).toMatchObject({ couponDiscountCents: 0, totalCents: 42250 })
   })
 
-  it('rounds the coupon on the combined promotional subtotal, not per card', () => {
-    const summary = calculateSummary(BLACK_FRIDAY_OFFERS.map((offer) => offer.id), resolveCoupon('BF360'))
-    expect(summary).toMatchObject({ originalCents: 459300, subtotalCents: 308275, couponDiscountCents: 15414, totalCents: 292861, savingsCents: 166439 })
-    expect(Object.values(summary).filter((value) => typeof value === 'number').every(Number.isInteger)).toBe(true)
+  it.each([
+    ['PMIDF20', 52835, 211340, 193560],
+    ['SUMMIT360', 39626, 224549, 180351],
+  ])('rounds %s once on the combined promotional subtotal', (code, couponDiscountCents, totalCents, savingsCents) => {
+    const result = calculateSummary(BLACK_FRIDAY_OFFERS.map((offer) => offer.id), resolveCoupon(code as string))
+    expect(result).toMatchObject({ originalCents: 404900, subtotalCents: 264175, couponDiscountCents, totalCents, savingsCents })
+    expect(Object.values(result).filter((value) => typeof value === 'number').every(Number.isInteger)).toBe(true)
   })
 })
 
 describe('Black Friday fixed countdown', () => {
-  it('uses the fixed Brasília deadline and decomposes days/hours/minutes/seconds', () => {
+  it('uses the unchanged Brasília deadline and decomposes time', () => {
     expect(BLACK_FRIDAY_DEADLINE).toBe('2026-12-01T02:59:59Z')
     expect(getCountdown(Date.parse('2026-11-29T01:57:56Z')))
       .toEqual({ days: 2, hours: 1, minutes: 2, seconds: 3, ended: false })
   })
 
-  it('keeps the final partial second visible and clamps at and after expiration', () => {
-    const deadline = Date.parse('2026-12-01T02:59:59Z')
+  it('keeps the final partial second visible and clamps expiration', () => {
+    const deadline = Date.parse(BLACK_FRIDAY_DEADLINE)
     expect(getCountdown(deadline - 1)).toEqual({ days: 0, hours: 0, minutes: 0, seconds: 1, ended: false })
     for (const now of [deadline, deadline + 1, deadline + 86400000]) {
       expect(getCountdown(now)).toEqual({ days: 0, hours: 0, minutes: 0, seconds: 0, ended: true })

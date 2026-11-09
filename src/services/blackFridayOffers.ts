@@ -1,61 +1,60 @@
-import { INITIAL_PRODUCTS } from './storeService'
-import type { Product } from '../types/store'
-
 export const BLACK_FRIDAY_DEADLINE = '2026-12-01T02:59:59Z'
-export const OFFER_CATEGORIES = ['Todos', 'Áudio imersivo', 'Wearables', 'Áudio conectado', 'Combos'] as const
+export const OFFER_CATEGORIES = ['Todos', 'Ingressos/Passaportes', 'Workshops & Cursos', 'Merchandising/Kits', 'Combos'] as const
 export type OfferCategory = (typeof OFFER_CATEGORIES)[number]
 export type OfferSort = 'discount' | 'savings' | 'price'
-export type Coupon = { code: 'BF360' | 'VIP10'; percent: number }
+export type Coupon = { code: 'PMIDF20' | 'SUMMIT360'; percent: number }
 export type BlackFridayOffer = {
   id: string
   name: string
   description: string
   category: Exclude<OfferCategory, 'Todos'>
-  products: Product[]
+  benefits: string[]
+  badges: string[]
+  art: 'passport' | 'workshop' | 'kit' | 'mentoring'
   originalCents: number
   promotionalCents: number
   discountPercent: number
   savingsCents: number
-  flash: boolean
   lot: string
 }
 
-function makeOffer(
-  products: Product[],
-  discountPercent: number,
-  flash: boolean,
-  lot: string,
-  combo?: { id: string; name: string; description: string },
-): BlackFridayOffer {
-  const originalCents = products.reduce((sum, product) => sum + Math.round(product.price * 100), 0)
-  const promotionalCents = Math.round(originalCents * (100 - discountPercent) / 100)
+function makeOffer(offer: Omit<BlackFridayOffer, 'discountPercent' | 'savingsCents'>): BlackFridayOffer {
   return {
-    id: combo?.id ?? products[0].id,
-    name: combo?.name ?? products[0].name,
-    description: combo?.description ?? products[0].description,
-    category: combo ? 'Combos' : products[0].category as BlackFridayOffer['category'],
-    products,
-    originalCents,
-    promotionalCents,
-    discountPercent,
-    savingsCents: originalCents - promotionalCents,
-    flash,
-    lot,
+    ...offer,
+    discountPercent: Math.round((offer.originalCents - offer.promotionalCents) * 100 / offer.originalCents),
+    savingsCents: offer.originalCents - offer.promotionalCents,
   }
 }
 
-const [orbit, pulse, wave] = INITIAL_PRODUCTS
-
 // Deterministic local campaign: no API, storage, real inventory or checkout.
 export const BLACK_FRIDAY_OFFERS: BlackFridayOffer[] = [
-  makeOffer([orbit], 30, true, 'BF-01 · 80 unidades ilustrativas'),
-  makeOffer([pulse], 25, false, 'BF-02 · 60 unidades ilustrativas'),
-  makeOffer([wave], 20, true, 'BF-03 · 100 unidades ilustrativas'),
-  makeOffer([orbit, pulse], 40, true, 'BF-04 · 40 kits ilustrativos', {
-    id: 'combo-orbit-pulse', name: 'Combo Ritmo & Imersão', description: 'Orbit + Pulse. Seu som, seu ritmo, uma só seleção.',
+  makeOffer({
+    id: 'passaporte-vip', name: 'Passaporte VIP PMI Summit DF', category: 'Ingressos/Passaportes', art: 'passport',
+    description: 'Dois dias para ampliar sua visão, conectar líderes e transformar projetos em impacto.',
+    benefits: ['2 dias de congresso', 'Palestras magnas', 'Networking VIP'],
+    badges: ['Acumula PDUs', 'Vagas Limitadas DF'],
+    originalCents: 120000, promotionalCents: 84000, lot: 'DF-01 · passaportes ilustrativos',
   }),
-  makeOffer([orbit, wave], 35, false, 'BF-05 · 50 kits ilustrativos', {
-    id: 'combo-orbit-wave', name: 'Combo Som em Todo Lugar', description: 'Orbit + Wave. Da sua playlist ao próximo encontro.',
+  makeOffer({
+    id: 'combo-ia-agil', name: 'Combo Credencial + Workshop IA & Métodos Ágeis', category: 'Combos', art: 'workshop',
+    description: 'A experiência do congresso encontra a prática: novas ferramentas para liderar a mudança.',
+    benefits: ['Credencial para o congresso', 'Workshop IA & Métodos Ágeis', 'Aprendizado com PDUs'],
+    badges: ['Acumula PDUs', 'Exclusivo Black Friday'],
+    originalCents: 180000, promotionalCents: 108000, lot: 'DF-02 · combos ilustrativos',
+  }),
+  makeOffer({
+    id: 'kit-oficial', name: 'Kit Oficial PMI Summit DF', category: 'Merchandising/Kits', art: 'kit',
+    description: 'Uma seleção executiva para acompanhar ideias, encontros e seu próximo grande projeto.',
+    benefits: ['Mochila executiva tech', 'Garrafa térmica inteligente', 'Caderno smart', 'Credencial VIP'],
+    badges: ['Exclusivo Black Friday'],
+    originalCents: 39900, promotionalCents: 29925, lot: 'DF-03 · kits ilustrativos',
+  }),
+  makeOffer({
+    id: 'mentoria-express', name: 'Mentoria Express PMP / Liderança', category: 'Workshops & Cursos', art: 'mentoring',
+    description: 'Clareza para seu próximo passo profissional, em uma conversa dedicada aos seus desafios.',
+    benefits: ['Mentoria individual', 'Líderes certificados', 'Foco em PMP e liderança'],
+    badges: ['Vagas Limitadas DF'],
+    originalCents: 65000, promotionalCents: 42250, lot: 'DF-04 · sessões ilustrativas',
   }),
 ]
 
@@ -66,14 +65,14 @@ export function formatBRL(cents: number): string {
 
 export function resolveCoupon(raw: string): Coupon | null {
   const code = raw.trim().toUpperCase()
-  if (code === 'BF360') return { code, percent: 5 }
-  if (code === 'VIP10') return { code, percent: 10 }
+  if (code === 'PMIDF20') return { code, percent: 20 }
+  if (code === 'SUMMIT360') return { code, percent: 15 }
   return null
 }
 
-export function filterOffers(category: OfferCategory, flashOnly: boolean, sort: OfferSort): BlackFridayOffer[] {
+export function filterOffers(category: OfferCategory, sort: OfferSort): BlackFridayOffer[] {
   return BLACK_FRIDAY_OFFERS.filter((offer) =>
-    (category === 'Todos' || category === offer.category) && (!flashOnly || offer.flash),
+    category === 'Todos' || category === offer.category,
   ).sort((a, b) => {
     if (sort === 'price') return a.promotionalCents - b.promotionalCents
     if (sort === 'savings') return b.savingsCents - a.savingsCents

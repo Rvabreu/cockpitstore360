@@ -58,23 +58,23 @@ function StorefrontPage() {
       <section className="pt-[64px] pb-[30px]">
         <div className="max-w-[1240px] mx-auto px-8">
           <div
-            className="min-h-[406px] border border-[#303034] rounded-[28px] overflow-hidden flex items-center relative"
+            className="min-h-[406px] border border-[#49335f] rounded-[28px] overflow-hidden flex items-center relative"
             style={{
               backgroundImage:
-                "linear-gradient(90deg,#101114 1%,rgba(16,17,20,.97) 27%,rgba(16,17,20,.08) 71%),url('/assets/hero_produtos.svg')",
+                "linear-gradient(90deg,#1b102c 1%,rgba(27,16,44,.97) 27%,rgba(27,16,44,.08) 71%),url('/assets/hero_produtos.svg')",
               backgroundPosition: 'right center',
               backgroundSize: 'cover',
               backgroundRepeat: 'no-repeat',
             }}
           >
             <div className="px-[58px] py-[60px] max-w-[650px] relative z-[2]">
-              <div className="text-[#ff916c] font-extrabold tracking-[2.6px] uppercase text-[11px]">
+              <div className="text-[#d2b5ff] font-extrabold tracking-[2.6px] uppercase text-[11px]">
                 TECNOLOGIA EM MOVIMENTO
               </div>
               <h1 className="text-[clamp(37px,4.2vw,62px)] tracking-[-2.8px] leading-[1.05] my-[18px]">
                 Conecte-se ao
                 <br />
-                <span className="text-[#ff9c7a]">que vem depois.</span>
+                <span className="text-[#ff995e]">que vem depois.</span>
               </h1>
               <p className="leading-[1.6] text-[#c0c2c7] text-[16px] max-w-[470px]">
                 A experiência de comprar tecnologia que você quer. E de acompanhar cada etapa até ela chegar.
@@ -82,13 +82,13 @@ function StorefrontPage() {
               <div className="flex gap-3 mt-[30px]">
                 <a
                   href="#pedidos"
-                  className="px-[18px] py-[13px] rounded-[12px] border border-[#ff633b] bg-[#ff633b] text-[#160c08] font-bold text-[13px] transition hover:-translate-y-px no-underline"
+                  className="px-[18px] py-[13px] rounded-[12px] border border-[#ff610f] bg-[#ff610f] text-[#160c08] font-bold text-[13px] transition hover:-translate-y-px no-underline"
                 >
                   Acompanhar meu pedido ↗
                 </a>
                 <a
                   href="#colecao"
-                  className="px-[18px] py-[13px] rounded-[12px] border border-[#474a51] bg-[#ffffff08] text-white font-bold text-[13px] transition hover:-translate-y-px no-underline"
+                  className="px-[18px] py-[13px] rounded-[12px] border border-[#70558b] bg-[#ffffff08] text-white font-bold text-[13px] transition hover:-translate-y-px no-underline"
                 >
                   Explorar produtos
                 </a>
@@ -103,7 +103,7 @@ function StorefrontPage() {
         <div className="max-w-[1240px] mx-auto px-8">
           <div className="flex items-end justify-between mb-[23px] gap-5">
             <div>
-              <div className="text-[#ff916c] font-extrabold tracking-[2.6px] uppercase text-[11px]">
+              <div className="text-[#d2b5ff] font-extrabold tracking-[2.6px] uppercase text-[11px]">
                 SELEÇÃO COCKPIT
               </div>
               <h2 className="text-[31px] tracking-[-1.2px] my-2">O futuro no seu setup.</h2>
@@ -111,7 +111,7 @@ function StorefrontPage() {
                 Produtos fictícios usados para contextualizar a jornada do cliente nesta demonstração.
               </p>
             </div>
-            <span className="inline-flex text-[#ffb69d] border border-[#ff714545] bg-[#ff643b12] px-[10px] py-[6px] rounded-[40px] text-[11px] font-semibold whitespace-nowrap">
+            <span className="inline-flex text-[#ff995e] border border-[#ff610f45] bg-[#ff610f12] px-[10px] py-[6px] rounded-[40px] text-[11px] font-semibold whitespace-nowrap">
               Catálogo ilustrativo
             </span>
           </div>
@@ -128,18 +128,18 @@ function StorefrontPage() {
         <div className="max-w-[1240px] mx-auto px-8">
           <div className="flex flex-col min-[851px]:flex-row min-[851px]:items-end min-[851px]:justify-between gap-5">
             <div>
-              <div className="text-[#ff916c] font-extrabold tracking-[2.6px] uppercase text-[11px]">
+              <div className="text-[#d2b5ff] font-extrabold tracking-[2.6px] uppercase text-[11px]">
                 NOSSA HISTÓRIA DE TRANSFORMAÇÃO
               </div>
               <h2 className="text-[35px] tracking-[-1.5px] my-[9px]">
-                Da dúvida ao <span className="text-[#ff9c7a]">acompanhamento do pedido.</span>
+                Da dúvida ao <span className="text-[#ff995e]">acompanhamento do pedido.</span>
               </h2>
               <p className="text-[#abaeb6] text-[14px] leading-[1.6] m-0 max-w-[670px]">
                 Compare a experiência original com a funcionalidade que será implementada pelo AI Cockpit.
               </p>
             </div>
             <div
-              className="flex items-center gap-[6px] border border-[#38393d] bg-[#15171a] p-[5px] rounded-[14px] w-max"
+              className="flex items-center gap-[6px] border border-[#49335f] bg-[#25163b] p-[5px] rounded-[14px] w-max"
               role="group"
               aria-label="Selecionar estado da aplicação"
             >
@@ -166,8 +166,8 @@ function StorefrontPage() {
 
           <div className="grid grid-cols-1 min-[851px]:grid-cols-[1.14fr_.86fr] gap-[19px] mt-[25px]">
             {/* Order card */}
-            <div className="bg-[#131519] border border-[#2b2d33] rounded-[22px] p-[29px]">
-              <div className="flex justify-between items-start gap-[15px] pb-5 border-b border-[#34363a]">
+            <div className="bg-[#1b102c] border border-[#49335f] rounded-[22px] p-[29px]">
+              <div className="flex justify-between items-start gap-[15px] pb-5 border-b border-[#49335f]">
                 <div>
                   <div className="text-[#a4a6ae] text-[11px] font-extrabold uppercase tracking-[1.4px]">
                     SEUS PEDIDOS / DETALHES
@@ -175,14 +175,14 @@ function StorefrontPage() {
                   <div className="text-[33px] font-extrabold tracking-[-1.5px] my-[7px]">#CS-2048</div>
                   <div className="text-[#a9abb2] text-[12px]">Compra em 19/10/2026 • Total R$ 699,00</div>
                 </div>
-                <span className="border border-[#ff6c3d55] bg-[#ff6c3d17] text-[#ffac90] px-3 py-[9px] rounded-[40px] text-[12px] font-extrabold whitespace-nowrap">
+                <span className="border border-[#ff610f55] bg-[#ff610f17] text-[#ff995e] px-3 py-[9px] rounded-[40px] text-[12px] font-extrabold whitespace-nowrap">
                   {statusBadge}
                 </span>
               </div>
 
-              <div className="flex gap-[14px] py-[18px] border-b border-[#323438] items-center">
+              <div className="flex gap-[14px] py-[18px] border-b border-[#49335f] items-center">
                 <div
-                  className="w-[62px] h-[62px] rounded-[12px] border border-[#373a3d]"
+                  className="w-[62px] h-[62px] rounded-[12px] border border-[#49335f]"
                   style={{
                     backgroundImage: "url('/assets/hero_produtos.svg')",
                     backgroundPosition: '92% 22%',
@@ -196,17 +196,17 @@ function StorefrontPage() {
               </div>
 
               {mode === 'before' ? (
-                <div className="p-[24px] bg-[#201917] border border-dashed border-[#835441] rounded-[15px] mt-[22px]">
+                <div className="p-[24px] bg-[#25163b] border border-dashed border-[#6b32c9] rounded-[15px] mt-[22px]">
                   <div className="text-[31px] mb-[10px]">◌</div>
                   <strong className="text-[18px]">Seu pedido foi recebido.</strong>
-                  <p className="text-[#e1bbac] leading-[1.7] text-[13px]">
+                  <p className="text-[#d2b5ff] leading-[1.7] text-[13px]">
                     Para obter informações sobre separação, transporte ou entrega, entre em contato com nossa
                     central de atendimento.
                   </p>
                   <button
                     type="button"
                     onClick={handleContact}
-                    className="px-[18px] py-[13px] rounded-[12px] border border-[#474a51] bg-[#ffffff08] text-white font-bold text-[13px] transition hover:-translate-y-px"
+                    className="px-[18px] py-[13px] rounded-[12px] border border-[#70558b] bg-[#ffffff08] text-white font-bold text-[13px] transition hover:-translate-y-px"
                   >
                     Entrar em contato
                   </button>
@@ -218,11 +218,11 @@ function StorefrontPage() {
                     LINHA DO TEMPO DO PEDIDO
                   </div>
                   <OrderTimeline events={order.events} />
-                  <div className="mt-[11px] border-t border-[#333] pt-[18px] flex items-center justify-between gap-4">
+                  <div className="mt-[11px] border-t border-[#49335f] pt-[18px] flex items-center justify-between gap-4">
                     <p className="text-[#aab0b9] text-[12px] m-0">
                       Atualização simulada a partir dos eventos do pedido.
                     </p>
-                    <span className="inline-flex text-[#ffb69d] border border-[#ff714545] bg-[#ff643b12] px-[10px] py-[6px] rounded-[40px] text-[11px] font-semibold whitespace-nowrap">
+                    <span className="inline-flex text-[#ff995e] border border-[#ff610f45] bg-[#ff610f12] px-[10px] py-[6px] rounded-[40px] text-[11px] font-semibold whitespace-nowrap">
                       Autosserviço
                     </span>
                   </div>
@@ -231,9 +231,9 @@ function StorefrontPage() {
             </div>
 
             {/* Side aside */}
-            <aside className="bg-[#101113] border border-[#2b2d33] rounded-[22px] p-[29px]">
+            <aside className="bg-[#1b102c] border border-[#49335f] rounded-[22px] p-[29px]">
               <div className="flex items-center gap-4">
-                <div className="w-[42px] h-[42px] rounded-[13px] grid place-items-center bg-[#ff613d21] text-[#ff805d] text-[21px]">
+                <div className="w-[42px] h-[42px] rounded-[13px] grid place-items-center bg-[#4f17a850] text-[#d2b5ff] text-[21px]">
                   ↗
                 </div>
                 <div>
@@ -251,17 +251,17 @@ function StorefrontPage() {
               <p className="text-[#a8abb2] text-[12px] leading-[1.7]">{stateExplanation}</p>
 
               <div className="grid grid-cols-2 gap-[9px] mt-5">
-                <div className="p-[14px] rounded-[13px] bg-[#1b1d21] border border-[#333]">
+                <div className="p-[14px] rounded-[13px] bg-[#25163b] border border-[#49335f]">
                   <b className="block text-white text-[19px]">1</b>
                   <small className="text-[#a9acb2] text-[11px]">Dor de negócio clara</small>
                 </div>
-                <div className="p-[14px] rounded-[13px] bg-[#1b1d21] border border-[#333]">
+                <div className="p-[14px] rounded-[13px] bg-[#25163b] border border-[#49335f]">
                   <b className="block text-white text-[19px]">1</b>
                   <small className="text-[#a9acb2] text-[11px]">História principal</small>
                 </div>
               </div>
 
-              <div className="rounded-[17px] border border-[#34363b] p-[21px] mt-[17px] bg-[#1a1d20]">
+              <div className="rounded-[17px] border border-[#49335f] p-[21px] mt-[17px] bg-[#25163b]">
                 <h4 className="m-0 mb-[9px] text-[14px]">🎛️ Simulador de operação</h4>
                 <p className="text-[#a4a7af] text-[12px] leading-[1.7]">
                   Ative o estado “Depois da melhoria” e avance o pedido para demonstrar como a linha do tempo
@@ -271,7 +271,7 @@ function StorefrontPage() {
                   type="button"
                   onClick={handleAdvance}
                   disabled={mode !== 'after'}
-                  className="w-full px-[18px] py-[13px] rounded-[12px] border border-[#ff633b] bg-[#ff633b] text-[#160c08] font-bold text-[13px] transition hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                  className="w-full px-[18px] py-[13px] rounded-[12px] border border-[#ff610f] bg-[#ff610f] text-[#160c08] font-bold text-[13px] transition hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                 >
                   {isLastStep ? 'Reiniciar simulação ↺' : 'Avançar status do pedido →'}
                 </button>
@@ -285,12 +285,12 @@ function StorefrontPage() {
                     value={searchValue}
                     placeholder="Ex.: CS-2048"
                     onChange={(e) => setSearchValue(e.target.value)}
-                    className="w-full min-w-0 bg-[#101115] border border-[#393b3f] rounded-[10px] text-white p-3 text-[12px]"
+                    className="w-full min-w-0 bg-[#10091b] border border-[#70558b] rounded-[10px] text-white p-3 text-[12px]"
                   />
                   <button
                     type="button"
                     onClick={handleSearch}
-                    className="px-[15px] py-[11px] rounded-[12px] border border-[#474a51] bg-[#212327] text-white font-bold text-[13px] whitespace-nowrap transition hover:-translate-y-px"
+                    className="px-[15px] py-[11px] rounded-[12px] border border-[#6b32c9] bg-[#4f17a8] text-white font-bold text-[13px] whitespace-nowrap transition hover:-translate-y-px"
                   >
                     Buscar
                   </button>
@@ -310,7 +310,7 @@ function StorefrontPage() {
       {/* Fluxo */}
       <section className="pt-[35px] pb-[80px]" id="fluxo">
         <div className="max-w-[1240px] mx-auto px-8">
-          <div className="text-[#ff916c] font-extrabold tracking-[2.6px] uppercase text-[11px]">
+          <div className="text-[#d2b5ff] font-extrabold tracking-[2.6px] uppercase text-[11px]">
             AI COCKPIT EM AÇÃO
           </div>
           <h2 className="text-[34px] tracking-[-1.4px] mt-2 mb-3">O fluxo por trás da melhoria.</h2>
@@ -322,10 +322,10 @@ function StorefrontPage() {
               <div
                 key={`${node.marker}-${node.subtitle}`}
                 className={`border rounded-[15px] p-5 min-h-[115px] ${
-                  node.highlight ? 'border-[#ff74446a] bg-[#ff633b12]' : 'border-[#34363b] bg-[#15171a]'
+                  node.highlight ? 'border-[#ff610f6a] bg-[#4f17a850]' : 'border-[#49335f] bg-[#25163b]'
                 }`}
               >
-                <i className="not-italic text-[#ff633b] text-[21px]">{node.marker}</i>
+                <i className="not-italic text-[#ff995e] text-[21px]">{node.marker}</i>
                 <strong className="block mt-[11px] mb-[5px] text-[14px]">{node.title}</strong>
                 <small className="text-[#a5a7ae] text-[11px] leading-[1.4]">{node.subtitle}</small>
               </div>

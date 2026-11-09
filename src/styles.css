@@ -2,15 +2,17 @@
 
 @layer base {
   :root {
-    --store-bg: #08090b;
-    --store-panel: #111316;
-    --store-panel2: #17191d;
-    --store-line: #2a2c31;
+    --store-bg: #10091b;
+    --store-panel: #1b102c;
+    --store-panel2: #25163b;
+    --store-line: #49335f;
     --store-white: #f7f7f8;
-    --store-muted: #a6a9b1;
-    --store-orange: #ff633b;
-    --store-orange2: #ff875a;
-    --store-mint: #57d4a5;
+    --store-muted: #beb1ce;
+    --store-orange: #ff610f;
+    --store-orange2: #ff995e;
+    --store-purple: #4f17a8;
+    --store-purple2: #6b32c9;
+    --store-lilac: #d2b5ff;
   }
 }
 
@@ -46,7 +48,7 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2c31;
+  background: var(--store-line);
   border-radius: 9999px;
 }
 

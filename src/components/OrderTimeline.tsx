@@ -1,7 +1,6 @@
 import type { OrderEvent, OrderEventStatus } from '../types/store'
 
-// Off-token hexes (do NOT snap to --store-*): done mint #53d9a4, current orange
-// #ff703f with its #ff703f22 ring, pending #555961/#17191e/#999.
+// Keep semantic done green; current uses the site's orange, pending stays neutral.
 const DOT_GLYPH: Record<OrderEventStatus, string> = {
   done: '✓',
   current: '●',
@@ -15,7 +14,7 @@ function dotClasses(status: OrderEventStatus): string {
     return `${base} bg-[#53d9a4] border-[#53d9a4] text-[#082218]`
   }
   if (status === 'current') {
-    return `${base} bg-[#ff703f] border-[#ff703f] text-[#2c1006] shadow-[0_0_0_5px_#ff703f22]`
+    return `${base} bg-[#ff610f] border-[#ff610f] text-[#2c1006] shadow-[0_0_0_5px_#ff610f22]`
   }
   return `${base} bg-[#17191e] border-[#555961] text-[#999]`
 }
