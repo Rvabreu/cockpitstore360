@@ -4,18 +4,11 @@ import {
   Scripts,
   createRootRoute,
 } from '@tanstack/react-router'
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { TanStackDevtools } from '@tanstack/react-devtools'
-import { PackageX } from 'lucide-react'
+import { Compass } from 'lucide-react'
 import Footer from '../components/Footer'
 import Header from '../components/Header'
 
 import appCss from '../styles.css?url'
-
-// R3-2: dark-only port. Hard-force dark unconditionally — no localStorage read,
-// no auto/light/matchMedia branch. suppressHydrationWarning on <html> keeps SSR
-// and client markup in sync (resolves the original hydration-mismatch warning).
-const THEME_INIT_SCRIPT = `(function(){try{var root=document.documentElement;root.classList.add('dark');root.style.colorScheme='dark';}catch(e){}})();`
 
 export const Route = createRootRoute({
   head: () => ({
@@ -28,10 +21,17 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'COCKPIT STORE 360 | Demo AI Cockpit',
+        title: 'PMI Summit Brasília | Conferência de Gestão, Inovação e Liderança',
       },
+      { name: 'description', content: 'Conheça o PMI Summit Brasília: gestão de projetos, liderança, inovação e inteligência artificial. Explore trilhas, programação, inscrições e simule até 16 PDUs.' },
+      { name: 'theme-color', content: '#0a1128' },
+      { property: 'og:title', content: 'PMI Summit Brasília | Projetos que transformam o futuro' },
+      { property: 'og:description', content: 'Gestão de projetos, liderança e IA se encontram em Brasília. Confira a proposta de programação e planeje sua participação.' },
+      { property: 'og:type', content: 'website' },
+      { property: 'og:locale', content: 'pt_BR' },
     ],
     links: [
+      { rel: 'icon', type: 'image/svg+xml', href: '/assets/pmi-summit-favicon.svg' },
       {
         rel: 'stylesheet',
         href: appCss,
@@ -44,21 +44,19 @@ export const Route = createRootRoute({
 
 function NotFound() {
   return (
-    <main className="max-w-2xl mx-auto px-4 py-20 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-[#17191d] text-[#ff633b] flex items-center justify-center mx-auto mb-6 border border-[#2a2c31]">
-        <PackageX className="w-8 h-8" />
-      </div>
-      <h1 className="text-3xl font-extrabold tracking-tight text-[#f7f7f8]">
+    <main id="conteudo" className="container not-found">
+      <Compass size={48} aria-hidden="true" />
+      <h1>
         Página não encontrada
       </h1>
-      <p className="mt-3 text-sm text-[#a6a9b1]">
+      <p>
         A rota que você tentou acessar não existe ou foi movida.
       </p>
       <Link
         to="/"
-        className="inline-flex items-center gap-2 mt-8 px-5 py-2.5 rounded-xl bg-[#ff633b] text-[#160c08] font-bold text-sm transition hover:-translate-y-0.5 no-underline"
+        className="button button-primary"
       >
-        Voltar à loja
+        Voltar ao Summit
       </Link>
     </main>
   )
@@ -66,26 +64,14 @@ function NotFound() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
+    <html lang="pt-BR">
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
-      <body className="font-sans antialiased min-h-screen bg-[#08090b] text-[#f7f7f8] selection:bg-[#ff633b]/20">
+      <body>
         <Header />
         {children}
         <Footer />
-        <TanStackDevtools
-          config={{
-            position: 'bottom-right',
-          }}
-          plugins={[
-            {
-              name: 'Tanstack Router',
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-          ]}
-        />
         <Scripts />
       </body>
     </html>
