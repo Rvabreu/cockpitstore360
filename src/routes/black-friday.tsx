@@ -22,21 +22,21 @@ export const Route = createFileRoute('/black-friday')({
 // Original architectural illustration, not an official event or PMI logo.
 function BrasiliaArt() {
   return <svg className="bf-brasilia-art" viewBox="0 0 620 640" role="img" aria-label="Ilustração original de Brasília: Congresso Nacional, Catedral e conexões de um evento">
-    <circle cx="332" cy="292" r="218" fill="#f2cd7510" stroke="#f2cd7530" />
-    <circle cx="332" cy="292" r="179" fill="none" stroke="#92ffc530" strokeDasharray="3 13" />
-    <path d="M55 466 332 565 594 466 332 370Z M55 496 332 595 594 496" fill="#172620" stroke="#a8ffb640" />
-    <g fill="none" stroke="#f2cd75" strokeWidth="3" strokeLinejoin="round">
+    <circle cx="332" cy="292" r="218" fill="#4f17a840" stroke="#6b32c980" />
+    <circle cx="332" cy="292" r="179" fill="none" stroke="#d2b5ff60" strokeDasharray="3 13" />
+    <path d="M55 466 332 565 594 466 332 370Z M55 496 332 595 594 496" fill="#25163b" stroke="#d2b5ff40" />
+    <g fill="none" stroke="#ff995e" strokeWidth="3" strokeLinejoin="round">
       <path d="M244 440V228h34v212m17 0V228h34v212M237 228h99M204 439h168" />
       <path d="M112 426h120m-108-2q48-76 96 0M367 394h127q-62 79-127 0ZM358 439h143" />
       <path d="M410 348q43-51 46-130 5 79 53 130m-91 0q26-55 38-130m0 0q-2 73 44 130M407 352h107" />
     </g>
-    <g stroke="#a8ffb6" fill="none" strokeWidth="2">
+    <g stroke="#d2b5ff" fill="none" strokeWidth="2">
       <path d="m106 329 77-136 188-43 135 112M150 517l93-52 119 32 164-42" strokeDasharray="5 8" />
       <circle cx="106" cy="329" r="7" /><circle cx="183" cy="193" r="7" /><circle cx="371" cy="150" r="7" /><circle cx="506" cy="262" r="7" />
       <path d="m367 143 4-23 4 23m-19 7h30" />
     </g>
-    <text x="94" y="113" fill="#a8ffb6" fontSize="13" letterSpacing="4">CONEXÕES QUE TRANSFORMAM</text>
-    <text x="238" y="621" fill="#f2cd75" fontSize="13" letterSpacing="5">BRASÍLIA / DF</text>
+    <text x="94" y="113" fill="#d2b5ff" fontSize="13" letterSpacing="4">CONEXÕES QUE TRANSFORMAM</text>
+    <text x="238" y="621" fill="#ff995e" fontSize="13" letterSpacing="5">BRASÍLIA / DF</text>
   </svg>
 }
 

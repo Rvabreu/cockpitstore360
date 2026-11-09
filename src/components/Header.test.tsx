@@ -1,8 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
 import Header from './Header'
 
+const storeStyles = readFileSync('src/styles.css', 'utf8')
+const campaignStyles = readFileSync('src/black-friday.css', 'utf8')
+
 describe('Header Black Friday navigation', () => {
+  it('shares the purple/orange branding with the storefront and campaign', () => {
+    render(<Header />)
+    const link = screen.getByRole('link', { name: 'Black Friday PMI Summit DF' })
+    expect(link).toHaveClass('text-[#ff995e]', 'bg-[#4f17a830]')
+    expect(within(link).getByText('PMI Summit DF')).toHaveClass('text-[#d2b5ff]')
+    for (const [styles, prefix] of [[storeStyles, 'store'], [campaignStyles, 'bf']]) {
+      expect(styles).toMatch(new RegExp(`--${prefix}-purple:\\s*#4f17a8\\b`))
+      expect(styles).toMatch(new RegExp(`--${prefix}-orange:\\s*#ff610f\\b`))
+    }
+    expect(campaignStyles).not.toMatch(/--bf-(neon|gold)\b|#a8ffb6|#f2cd75/i)
+  })
+
   it('links to the Black Friday route and returns to the storefront through the brand', () => {
     render(<Header />)
 

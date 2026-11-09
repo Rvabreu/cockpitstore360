@@ -45,18 +45,18 @@ export const Route = createRootRoute({
 function NotFound() {
   return (
     <main className="max-w-2xl mx-auto px-4 py-20 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-[#17191d] text-[#ff633b] flex items-center justify-center mx-auto mb-6 border border-[#2a2c31]">
+      <div className="w-16 h-16 rounded-2xl bg-[#25163b] text-[#ff995e] flex items-center justify-center mx-auto mb-6 border border-[#49335f]">
         <PackageX className="w-8 h-8" />
       </div>
       <h1 className="text-3xl font-extrabold tracking-tight text-[#f7f7f8]">
         Página não encontrada
       </h1>
-      <p className="mt-3 text-sm text-[#a6a9b1]">
+      <p className="mt-3 text-sm text-[#beb1ce]">
         A rota que você tentou acessar não existe ou foi movida.
       </p>
       <Link
         to="/"
-        className="inline-flex items-center gap-2 mt-8 px-5 py-2.5 rounded-xl bg-[#ff633b] text-[#160c08] font-bold text-sm transition hover:-translate-y-0.5 no-underline"
+        className="inline-flex items-center gap-2 mt-8 px-5 py-2.5 rounded-xl bg-[#ff610f] text-[#160c08] font-bold text-sm transition hover:-translate-y-0.5 no-underline"
       >
         Voltar à loja
       </Link>
@@ -71,7 +71,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
-      <body className="font-sans antialiased min-h-screen bg-[#08090b] text-[#f7f7f8] selection:bg-[#ff633b]/20">
+      <body className="font-sans antialiased min-h-screen bg-[#10091b] text-[#f7f7f8] selection:bg-[#6b32c9]/40">
         <Header />
         {children}
         <Footer />
