@@ -1,45 +1,45 @@
-.bf-login-page { color: #f7f2fc; background: radial-gradient(ellipse at 5% 25%, #4f17a840, transparent 55%), #10091b; padding: 40px 0 72px; }
+.bf-login-page { --login-yellow: #ffdf00; --login-green: #009739; --login-blue: #002776; color: #ffffff; background: radial-gradient(ellipse at 5% 25%, #00973960, transparent 55%), #061c15; padding: 40px 0 72px; }
 .bf-login-page * { box-sizing: border-box; }
 .bf-login-container { width: min(1120px, calc(100% - 64px)); margin: 0 auto; }
-.bf-login-page :is(a, button, input):focus-visible { outline: 2px solid #ff995e; outline-offset: 4px; }
+.bf-login-page :is(a, button, input):focus-visible { outline: 2px solid var(--login-yellow); outline-offset: 4px; }
 .bf-login-page a { text-decoration: none; }
-.bf-login-back { display: inline-flex; align-items: center; gap: 9px; color: #d2b5ff; font-size: 13px; min-height: 44px; margin-bottom: 28px; }
-.bf-login-back:hover { color: #ff995e; }
+.bf-login-back { display: inline-flex; align-items: center; gap: 9px; color: #b7efc8; font-size: 13px; min-height: 44px; margin-bottom: 28px; }
+.bf-login-back:hover { color: var(--login-yellow); }
 .bf-login-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 72px; align-items: center; }
 .bf-login-story, .bf-login-card { min-width: 0; }
-.bf-login-eyebrow { color: #d2b5ff; font-size: 10px; font-weight: 800; letter-spacing: 2px; line-height: 1.8; }
+.bf-login-eyebrow { color: #b7efc8; font-size: 10px; font-weight: 800; letter-spacing: 2px; line-height: 1.8; }
 .bf-login-story h1 { font-size: 18px; font-weight: 800; letter-spacing: 1px; margin: 18px 0 22px; }
 .bf-login-story h1 > span { display: block; font-size: clamp(36px, 4vw, 55px); letter-spacing: -2px; line-height: 1.08; margin-top: 24px; }
-.bf-login-story h1 em { font-style: normal; color: #ff995e; }
-.bf-login-story > p { font-size: 14px; color: #cec1dd; line-height: 1.8; max-width: 440px; }
-.bf-login-art { height: 200px; position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; margin: 26px 0; color: #ff995e; border: 1px solid #6b32c970; border-radius: 20px; background: radial-gradient(ellipse at 50% 100%, #6b32c970, transparent 70%), #1b102c; }
-.bf-login-orbit { position: absolute; z-index: -1; width: 300px; height: 300px; border: 1px dashed #d2b5ff50; border-radius: 50%; transform: rotate(-25deg) scaleY(.55); }
-.bf-login-art > span:not(.bf-login-orbit) { font-size: 9px; letter-spacing: 2px; color: #d2b5ff; }
+.bf-login-story h1 em { font-style: normal; color: var(--login-yellow); }
+.bf-login-story > p { font-size: 14px; color: #c9ded2; line-height: 1.8; max-width: 440px; }
+.bf-login-art { height: 200px; position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; margin: 26px 0; color: var(--login-yellow); border: 1px solid var(--login-green); border-radius: 20px; background: radial-gradient(ellipse at 50% 100%, #00973960, transparent 70%), var(--login-blue); }
+.bf-login-orbit { position: absolute; z-index: -1; width: 300px; height: 300px; border: 1px dashed #ffdf0080; border-radius: 50%; transform: rotate(-25deg) scaleY(.55); }
+.bf-login-art > span:not(.bf-login-orbit) { font-size: 9px; letter-spacing: 2px; color: #ffffff; }
 .bf-login-art strong { font-size: 12px; letter-spacing: 5px; }
-.bf-login-story > p.bf-login-public { font-size: 12px; color: #d2b5ff; }
-.bf-login-card { padding: 38px; border: 1px solid #6b32c9; border-radius: 24px; background: linear-gradient(145deg, #321452, #1b102c 42%); box-shadow: 0 24px 70px #00000030; }
+.bf-login-story > p.bf-login-public { font-size: 12px; color: #b7efc8; }
+.bf-login-card { padding: 38px; border: 1px solid var(--login-green); border-radius: 24px; background: linear-gradient(145deg, #003d29, #071c32 42%); box-shadow: 0 24px 70px #00000030; }
 .bf-login-card h2 { font-size: 38px; letter-spacing: -1.5px; margin: 14px 0 8px; }
-.bf-login-intro { color: #cec1dd; font-size: 14px; line-height: 1.6; margin: 0; }
-.bf-login-notice { display: flex; align-items: start; gap: 11px; margin: 24px 0; padding: 15px; border: 1px solid #6b32c960; background: #4f17a820; border-radius: 12px; }
-.bf-login-notice svg { flex-shrink: 0; color: #ff995e; margin-top: 2px; }
-.bf-login-notice p { margin: 0; color: #cec1dd; font-size: 12px; line-height: 1.7; }
-.bf-login-notice strong { display: block; color: #d2b5ff; }
+.bf-login-intro { color: #c9ded2; font-size: 14px; line-height: 1.6; margin: 0; }
+.bf-login-notice { display: flex; align-items: start; gap: 11px; margin: 24px 0; padding: 15px; border: 1px solid #00973980; background: #00973920; border-radius: 12px; }
+.bf-login-notice svg { flex-shrink: 0; color: var(--login-yellow); margin-top: 2px; }
+.bf-login-notice p { margin: 0; color: #c9ded2; font-size: 12px; line-height: 1.7; }
+.bf-login-notice strong { display: block; color: #b7efc8; }
 .bf-login-field { margin-bottom: 20px; }
 .bf-login-field label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 9px; }
-.bf-login-field input { width: 100%; min-width: 0; min-height: 48px; color: #f7f2fc; background: #10091b; border: 1px solid #70558b; border-radius: 10px; padding: 13px 14px; font: inherit; font-size: 16px; }
-.bf-login-field input::placeholder { color: #b8a6cc; font-size: 13px; }
+.bf-login-field input { width: 100%; min-width: 0; min-height: 48px; color: #ffffff; background: #061426; border: 1px solid #537968; border-radius: 10px; padding: 13px 14px; font: inherit; font-size: 16px; }
+.bf-login-field input::placeholder { color: #b8cebf; font-size: 13px; }
 .bf-login-field input[aria-invalid="true"] { border-color: #ff9eaa; }
 .bf-login-password { position: relative; }
 .bf-login-password input { padding-right: 52px; }
-.bf-login-password button { position: absolute; right: 3px; top: 3px; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; color: #d2b5ff; cursor: pointer; }
-.bf-login-password button:hover { color: #ff995e; background: #4f17a850; }
+.bf-login-password button { position: absolute; right: 3px; top: 3px; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; color: #b7efc8; cursor: pointer; }
+.bf-login-password button:hover { color: var(--login-yellow); background: #00973930; }
 .bf-login-error { font-size: 12px; color: #ff9eaa; margin: 9px 0 0; line-height: 1.6; }
-.bf-login-submit { width: 100%; min-height: 48px; display: flex; justify-content: center; align-items: center; gap: 10px; padding: 14px; border: 0; border-radius: 10px; background: #ff610f; color: #1b102c; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
-.bf-login-submit:hover { background: #ff995e; }
+.bf-login-submit { width: 100%; min-height: 48px; display: flex; justify-content: center; align-items: center; gap: 10px; padding: 14px; border: 0; border-radius: 10px; background: var(--login-yellow); color: var(--login-blue); font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+.bf-login-submit:hover { background: #ffed70; }
 .bf-login-feedback:empty { display: none; }
-.bf-login-feedback { margin-top: 20px; padding: 16px; border: 1px solid #6b32c970; background: #4f17a820; border-radius: 12px; color: #d2b5ff; font-size: 13px; line-height: 1.7; }
+.bf-login-feedback { margin-top: 20px; padding: 16px; border: 1px solid #00973980; background: #00973920; border-radius: 12px; color: #b7efc8; font-size: 13px; line-height: 1.7; }
 .bf-login-feedback p { margin: 0 0 12px; }
-.bf-login-feedback a { display: inline-flex; align-items: center; gap: 8px; color: #ff995e; min-height: 44px; font-weight: 750; }
-.bf-login-footnote { font-size: 11px; line-height: 1.8; color: #beb1ce; margin: 22px 0 0; }
+.bf-login-feedback a { display: inline-flex; align-items: center; gap: 8px; color: var(--login-yellow); min-height: 44px; font-weight: 750; }
+.bf-login-footnote { font-size: 11px; line-height: 1.8; color: #b8cebf; margin: 22px 0 0; }
 @media (max-width: 850px) { .bf-login-layout { gap: 32px; grid-template-columns: 1fr; } .bf-login-story h1 > span { font-size: 44px; } .bf-login-art { height: 160px; } .bf-login-story > p { max-width: none; } }
 @media (max-width: 480px) { .bf-login-page { padding: 24px 0 48px; } .bf-login-container { width: calc(100% - 32px); } .bf-login-card { padding: 24px 20px; border-radius: 18px; } .bf-login-story h1 > span { font-size: 36px; letter-spacing: -1.3px; } .bf-login-layout { gap: 20px; } }
