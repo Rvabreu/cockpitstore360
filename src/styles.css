@@ -126,6 +126,17 @@ main:focus { outline: none; }
 .speaker-card h3 { font-size: 20px; letter-spacing: -.5px; }
 .speaker-card > p:not(.eyebrow) { font-size: 12px; margin-top: 12px; }
 .speaker-card > .fine-print { display: block; margin-top: 12px; color: #62516e; }
+.speakers-home-link { margin-top: 32px; }
+.speakers-hero .eyebrow { margin-top: 34px; }
+.speakers-hero h1 { font-size: clamp(42px, 5.5vw, 76px); font-weight: 800; line-height: 1.08; letter-spacing: -2px; }
+.speakers-hero h1 span { color: var(--orange-light); }
+.speakers-intro { max-width: 640px; margin-top: 26px; font-size: 17px; }
+.speakers-feature h2 { font-size: clamp(34px, 4vw, 52px); }
+.today-section .speakers-feature .eyebrow { color: var(--orange-light); margin-bottom: 15px; }
+.speakers-session { border-top: 1px solid #ffffff30; margin-top: 26px; padding-top: 26px; }
+.speakers-feature .speakers-session h3 { font-size: clamp(21px, 2.3vw, 28px); }
+.speakers-session .fine-print { margin-top: 14px; }
+.speakers-profiles { margin-top: 76px; background: transparent; }
 .pass-card { display: flex; flex-direction: column; border: 1px solid var(--line); padding: 25px; background: #3b1858; border-radius: 5px; }
 .pass-card.selected { border-color: var(--orange); background: #4f1780; box-shadow: inset 0 3px var(--orange); }
 .pass-card .card-top { color: var(--orange-light); min-height: 24px; font-size: 8px; font-weight: 700; letter-spacing: 1px; margin-bottom: 23px; }

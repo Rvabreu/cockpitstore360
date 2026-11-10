@@ -46,6 +46,9 @@ describe('SummitPage', () => {
     }
     expect(screen.getByText('Data e local propostos, sujeitos à confirmação.')).toBeInTheDocument()
     expect(screen.getAllByText('Convidado a confirmar')).toHaveLength(4)
+    const guests = document.getElementById('convidados')!
+    expect(within(guests).getByRole('link', { name: /Conheça a página de palestrantes/ })).toHaveAttribute('href', '/palestrantes')
+    expect(within(guests).getByText(/Os quatro perfis abaixo são ilustrativos/)).toBeInTheDocument()
     for (const pass of ['Passe Geral Summit', 'Passaporte VIP + Masterclass', 'Combo Estudante / Acadêmico']) {
       expect(screen.getByRole('heading', { name: pass })).toBeInTheDocument()
     }

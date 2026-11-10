@@ -4,7 +4,7 @@ import { ArrowUpRight, Menu, X } from 'lucide-react'
 const navigation = [
   ['Sobre o Summit', '/#sobre'],
   ['Palestras de hoje', '/#programacao-hoje'],
-  ['Página de hoje', '/hoje'],
+  ['Palestrantes', '/palestrantes'],
   ['Trilhas & Programação', '/#trilhas'],
   ['Ingressos', '/#ingressos'],
   ['Simulador de PDUs', '/#pdus'],
