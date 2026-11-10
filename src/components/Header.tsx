@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { ArrowUpRight, Menu, X } from 'lucide-react'
 
 const navigation = [
-  ['Sobre o Summit', 'sobre'],
-  ['Trilhas & Programação', 'trilhas'],
-  ['Ingressos', 'ingressos'],
-  ['Simulador de PDUs', 'pdus'],
-  ['Local', 'local'],
+  ['Sobre o Summit', '/#sobre'],
+  ['Palestras de hoje', '/#programacao-hoje'],
+  ['Página de hoje', '/hoje'],
+  ['Trilhas & Programação', '/#trilhas'],
+  ['Ingressos', '/#ingressos'],
+  ['Simulador de PDUs', '/#pdus'],
+  ['Local', '/#local'],
 ] as const
 
 export default function Header() {
@@ -21,7 +23,7 @@ export default function Header() {
             <img className="summit-logo" src="/assets/pmi-summit-logo.svg" alt="PMI Summit Brasília • DF Chapter" width="185" height="52" />
           </a>
           <nav className="desktop-nav" aria-label="Navegação principal">
-            {navigation.map(([label, id]) => <a href={`/#${id}`} key={id}>{label}</a>)}
+            {navigation.map(([label, href]) => <a href={href} key={href}>{label}</a>)}
           </nav>
           <a className="button button-primary header-cta" href="/#ingressos">Inscreva-se Agora <ArrowUpRight size={16} aria-hidden="true" /></a>
           <button className="menu-toggle" type="button" aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'} aria-expanded={menuOpen} aria-controls="mobile-navigation" onClick={() => setMenuOpen(!menuOpen)}>
@@ -29,7 +31,7 @@ export default function Header() {
           </button>
         </div>
         {menuOpen && <nav id="mobile-navigation" className="mobile-nav container" aria-label="Navegação móvel">
-          {navigation.map(([label, id]) => <a href={`/#${id}`} key={id} onClick={() => setMenuOpen(false)}>{label}</a>)}
+          {navigation.map(([label, href]) => <a href={href} key={href} onClick={() => setMenuOpen(false)}>{label}</a>)}
           <a className="button button-primary" href="/#ingressos" onClick={() => setMenuOpen(false)}>Inscreva-se Agora <ArrowUpRight size={16} aria-hidden="true" /></a>
         </nav>}
       </header>

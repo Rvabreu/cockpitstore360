@@ -10,6 +10,13 @@ function fillCheckout() {
 }
 
 describe('SummitPage', () => {
+  it('places today directly after hero without replacing the 2027 portal sections', () => {
+    const { container } = render(<SummitPage />)
+    expect(container.querySelector('#inicio')?.nextElementSibling).toHaveAttribute('id', 'programacao-hoje')
+    expect(screen.getByRole('link', { name: /Abrir página de hoje/ })).toHaveAttribute('href', '/hoje')
+    for (const id of ['sobre', 'trilhas', 'programacao', 'convidados', 'ingressos', 'pdus', 'local', 'patrocinio', 'submissao']) expect(container.querySelector(`#${id}`)).toBeInTheDocument()
+    expect(screen.getByText('18 e 19 de setembro de 2027')).toBeInTheDocument()
+  })
   it('disables all form controls in SSR and enables them only after client hydration', () => {
     const ssr = document.createElement('div')
     ssr.innerHTML = renderToString(<SummitPage />)

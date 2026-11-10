@@ -14,6 +14,7 @@ export default function Footer() {
             <h3>Explore o Summit</h3>
             <a href="/#sobre">Sobre o evento</a>
             <a href="/#trilhas">Trilhas & Programação</a>
+            <a href="/hoje">Programação de hoje</a>
             <a href="/#ingressos">Ingressos e inscrições</a>
             <a href="/#pdus">Planeje seus PDUs</a>
             <a href="/#submissao">Trabalhos e palestrantes</a>

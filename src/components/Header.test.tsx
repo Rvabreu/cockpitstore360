@@ -7,6 +7,8 @@ describe('Summit header', () => {
     render(<Header />)
     expect(screen.getByAltText('PMI Summit Brasília • DF Chapter')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Simulador de PDUs' })).toHaveAttribute('href', '/#pdus')
+    expect(screen.getByRole('link', { name: 'Palestras de hoje' })).toHaveAttribute('href', '/#programacao-hoje')
+    expect(screen.getByRole('link', { name: 'Página de hoje' })).toHaveAttribute('href', '/hoje')
     expect(screen.getByRole('link', { name: 'Pular para o conteúdo' })).toHaveAttribute('href', '#conteudo')
   })
 

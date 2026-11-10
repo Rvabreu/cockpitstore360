@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState, type FormEvent } from 'react'
 import { ArrowUpRight, CalendarDays, MapPin, MoveRight, Sparkles, Users, Globe2, Check, Plus, Minus } from 'lucide-react'
+import TodaySchedule from '../components/TodaySchedule'
 
 export const Route = createFileRoute('/')({ component: SummitPage })
 
@@ -94,6 +95,8 @@ export function SummitPage() {
         </div>
         <div className="container hero-benefits"><span><Sparkles aria-hidden="true" size={20} /><b>Até 16 PDUs</b> estimados</span><span><Globe2 aria-hidden="true" size={20} />Preparação para certificações internacionais</span><span><Users aria-hidden="true" size={20} />Networking com propósito</span><a href="#sobre">Explore o encontro <span aria-hidden="true">↓</span></a></div>
       </section>
+
+      <TodaySchedule />
 
       <section id="sobre" className="section section-light">
         <div className="container about-layout"><div><p className="eyebrow">O ENCONTRO</p><h2>O futuro não acontece.<br /><span>Nós o projetamos.</span></h2></div><div><p className="large-copy">No coração do Brasil, uma comunidade que pensa grande se encontra para fazer a diferença.</p><p>O PMI Summit Brasília conecta profissionais, lideranças, estudantes e organizações em torno de desafios reais. Um espaço para trocar experiências, explorar a IA e fortalecer a gestão de projetos no Centro-Oeste.</p><p>Conteúdo aplicado, conversas relevantes e preparação para sua jornada de desenvolvimento e certificação internacional — sem promessa de aprovação ou certificação concedida.</p><div className="about-stats"><div><strong>02</strong><span>dias de imersão</span></div><div><strong>04</strong><span>trilhas de conhecimento</span></div><div><strong>∞</strong><span>possibilidades de conexão</span></div></div></div></div>
