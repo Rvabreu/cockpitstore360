@@ -28,7 +28,12 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'COCKPIT STORE 360 | Demo AI Cockpit',
+        title: 'Palestras de Gestão de Projetos — PMI | Programação preliminar',
+      },
+      {
+        name: 'description',
+        content:
+          'Site one-page responsivo com grade preliminar de palestras, horários e eixos temáticos em gestão de projetos. Proposta conceitual sujeita à confirmação.',
       },
     ],
     links: [
