@@ -3,7 +3,8 @@
 Portal de conferência em português construído com TanStack Start, React, Vite
 e Tailwind CSS. Inclui trilhas e programação por dia, perfis de palestrantes,
 simulação de inscrições, planejamento de PDUs e guia de Brasília.
-Identidade visual em verde-floresta, esmeralda e menta, com tons sage e dourado.
+Identidade visual em roxo, laranja e branco, inspirada na direção visual PMI
+solicitada. Não utiliza template oficial nem implica afiliação ou aprovação do PMI.
 
 Datas, local, valores, convidados e patrocínios são propostas a confirmar com
 o PMI Distrito Federal. O checkout e o envio de propostas são simulações locais:

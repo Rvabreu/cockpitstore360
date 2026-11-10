@@ -16,9 +16,9 @@ const agenda = [
   [ ['08:30', 'Café, ideias e novos encontros', 'Networking'], ['09:00', 'Estratégia em movimento', 'Estratégia e Inovação · plenária'], ['10:30', 'Laboratório de decisões com IA', 'Inteligência Artificial · oficina'], ['13:30', 'Da governança à entrega de valor', 'Gestão de Projetos · painel'], ['15:00', 'O próximo capítulo da sua liderança', 'Liderança · conversa'], ['16:30', 'Compromissos para o futuro', 'Encerramento · plenária'] ],
 ]
 const speakers = [
-  { initials: 'GP', role: 'Gestão de projetos', name: 'Quem transforma planos em impacto', bio: 'Perfil de profissional com experiência em portfólios complexos, governança e entrega de valor.', color: 'cyan' },
-  { initials: 'LD', role: 'Liderança & pessoas', name: 'Quem inspira novas lideranças', bio: 'Perfil de liderança dedicada ao desenvolvimento de equipes, negociação e cultura de colaboração.', color: 'gold' },
-  { initials: 'IA', role: 'Inteligência artificial', name: 'Quem conecta tecnologia e propósito', bio: 'Perfil de especialista em aplicações de IA, ética e transformação dos processos de trabalho.', color: 'blue' },
+  { initials: 'GP', role: 'Gestão de projetos', name: 'Quem transforma planos em impacto', bio: 'Perfil de profissional com experiência em portfólios complexos, governança e entrega de valor.', color: 'purple' },
+  { initials: 'LD', role: 'Liderança & pessoas', name: 'Quem inspira novas lideranças', bio: 'Perfil de liderança dedicada ao desenvolvimento de equipes, negociação e cultura de colaboração.', color: 'orange' },
+  { initials: 'IA', role: 'Inteligência artificial', name: 'Quem conecta tecnologia e propósito', bio: 'Perfil de especialista em aplicações de IA, ética e transformação dos processos de trabalho.', color: 'lilac' },
   { initials: 'EI', role: 'Estratégia & inovação', name: 'Quem enxerga o próximo horizonte', bio: 'Perfil de executivo com atuação em inovação, estratégia e transformação organizacional.', color: 'purple' },
 ]
 const passes = [

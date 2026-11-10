@@ -1,28 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="720" height="780" viewBox="0 0 720 780" fill="none">
   <defs>
-    <linearGradient id="sky" x1="70" y1="90" x2="590" y2="730" gradientUnits="userSpaceOnUse"><stop stop-color="#0b392b"/><stop offset="1" stop-color="#071c16"/></linearGradient>
-    <linearGradient id="facade" x1="300" y1="280" x2="430" y2="630" gradientUnits="userSpaceOnUse"><stop stop-color="#d6f3df"/><stop offset="1" stop-color="#528e6c"/></linearGradient>
-    <radialGradient id="glow"><stop stop-color="#34d399" stop-opacity=".22"/><stop offset="1" stop-color="#34d399" stop-opacity="0"/></radialGradient>
-    <pattern id="windows" width="12" height="15" patternUnits="userSpaceOnUse"><path d="M0 0h12v15H0z" fill="#80ba98"/><path d="M2 2h8v10H2z" fill="#164632"/></pattern>
+    <linearGradient id="sky" x1="70" y1="90" x2="590" y2="730" gradientUnits="userSpaceOnUse"><stop stop-color="#4f1780"/><stop offset="1" stop-color="#27103d"/></linearGradient>
+    <linearGradient id="facade" x1="300" y1="280" x2="430" y2="630" gradientUnits="userSpaceOnUse"><stop stop-color="#ffffff"/><stop offset="1" stop-color="#a88ac1"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#ff8b3d" stop-opacity=".16"/><stop offset="1" stop-color="#ff8b3d" stop-opacity="0"/></radialGradient>
+    <pattern id="windows" width="12" height="15" patternUnits="userSpaceOnUse"><path d="M0 0h12v15H0z" fill="#cbb4de"/><path d="M2 2h8v10H2z" fill="#5b2485"/></pattern>
   </defs>
   <circle cx="365" cy="365" r="333" fill="url(#sky)"/>
   <circle cx="375" cy="350" r="330" fill="url(#glow)"/>
-  <g stroke="#659575" stroke-opacity=".2"><path d="M64 240h592M33 340h657M38 440h648M85 540h554M154 640h420M210 85v592M310 36v660M410 39v655M510 81v593"/><circle cx="365" cy="365" r="333"/><circle cx="365" cy="365" r="257"/><circle cx="365" cy="365" r="181"/></g>
-  <g stroke="#34d399"><ellipse cx="365" cy="365" rx="352" ry="145" transform="rotate(-32 365 365)" stroke-opacity=".7"/><ellipse cx="365" cy="365" rx="353" ry="188" transform="rotate(42 365 365)" stroke-opacity=".25"/></g>
-  <circle cx="626" cy="158" r="7" fill="#f4d06f"/><circle cx="62" cy="446" r="5" fill="#34d399"/><circle cx="544" cy="631" r="4" fill="#f4d06f"/>
-  <path d="M65 607 351 529l297 78-295 98z" fill="#0c3b29" stroke="#356b4c"/>
-  <path d="m103 595 250-55 255 55-255 63z" fill="#144c34"/>
-  <path d="M93 608h543M117 625h493M156 644h415" stroke="#487756" stroke-opacity=".6"/>
+  <g stroke="#a88ac1" stroke-opacity=".2"><path d="M64 240h592M33 340h657M38 440h648M85 540h554M154 640h420M210 85v592M310 36v660M410 39v655M510 81v593"/><circle cx="365" cy="365" r="333"/><circle cx="365" cy="365" r="257"/><circle cx="365" cy="365" r="181"/></g>
+  <g stroke="#ff8b3d"><ellipse cx="365" cy="365" rx="352" ry="145" transform="rotate(-32 365 365)" stroke-opacity=".7"/><ellipse cx="365" cy="365" rx="353" ry="188" transform="rotate(42 365 365)" stroke-opacity=".25"/></g>
+  <circle cx="626" cy="158" r="7" fill="#ffad70"/><circle cx="62" cy="446" r="5" fill="#ff8b3d"/><circle cx="544" cy="631" r="4" fill="#ffad70"/>
+  <path d="M65 607 351 529l297 78-295 98z" fill="#3b1858" stroke="#8053a1"/>
+  <path d="m103 595 250-55 255 55-255 63z" fill="#5b2485"/>
+  <path d="M93 608h543M117 625h493M156 644h415" stroke="#a88ac1" stroke-opacity=".6"/>
   <path d="m303 286 44-9v280l-44 11zM357 277l42 9v282l-42-11z" fill="url(#facade)"/>
   <path d="M310 293h28v256h-28zM365 292h27v258h-27z" fill="url(#windows)"/>
-  <path d="m303 286 9 7v261l-9 14M357 277l8 15v258l-8 7" stroke="#bee8ce" stroke-width="2"/>
-  <path d="M169 555h359v29H169z" fill="#b0ceb9"/><path d="M169 567h359v17H169z" fill="#568164"/><path d="m169 555 29-9h305l25 9z" fill="#d6e9dc"/>
-  <path d="M194 547c0-37 76-37 76 0z" fill="url(#facade)"/><path d="M411 521h95c-4 31-90 42-95 0z" fill="#c1dfcc"/><path d="M411 521c0 8 95 8 95 0" stroke="#eaf7ee" stroke-width="3"/>
-  <g stroke="#aae0bc" stroke-width="3"><path d="M554 587c-40-50-18-95-34-126M554 587c-24-53 9-85 0-126M554 587c0-40 35-70 34-108M554 587c24-35 48-47 49-74M554 587c-40-25-64-38-74-70"/></g>
-  <path d="M492 582c7-27 108-26 126 0l-10 13H502z" fill="#528064" stroke="#a6cdb3"/>
-  <path d="M538 462h32M553 451v25" stroke="#f4d06f" stroke-width="2"/>
-  <path d="m147 638 200 48 187-48" stroke="#34d399" stroke-opacity=".5"/>
-  <path d="M94 194h59M123 165v59M586 358h35M603 341v35" stroke="#f4d06f" stroke-opacity=".6"/>
-  <text x="87" y="119" fill="#89b398" font-family="monospace" font-size="10" letter-spacing="3">CONEXÕES / IMPACTO / FUTURO</text>
-  <text x="312" y="745" fill="#89b398" font-family="monospace" font-size="10" letter-spacing="4">BRASÍLIA</text>
+  <path d="m303 286 9 7v261l-9 14M357 277l8 15v258l-8 7" stroke="#eee3f7" stroke-width="2"/>
+  <path d="M169 555h359v29H169z" fill="#ded0ed"/><path d="M169 567h359v17H169z" fill="#9776b0"/><path d="m169 555 29-9h305l25 9z" fill="#ffffff"/>
+  <path d="M194 547c0-37 76-37 76 0z" fill="url(#facade)"/><path d="M411 521h95c-4 31-90 42-95 0z" fill="#eee3f7"/><path d="M411 521c0 8 95 8 95 0" stroke="#ffffff" stroke-width="3"/>
+  <g stroke="#eee3f7" stroke-width="3"><path d="M554 587c-40-50-18-95-34-126M554 587c-24-53 9-85 0-126M554 587c0-40 35-70 34-108M554 587c24-35 48-47 49-74M554 587c-40-25-64-38-74-70"/></g>
+  <path d="M492 582c7-27 108-26 126 0l-10 13H502z" fill="#9776b0" stroke="#ded0ed"/>
+  <path d="M538 462h32M553 451v25" stroke="#ffad70" stroke-width="2"/>
+  <path d="m147 638 200 48 187-48" stroke="#ff8b3d" stroke-opacity=".5"/>
+  <path d="M94 194h59M123 165v59M586 358h35M603 341v35" stroke="#ffad70" stroke-opacity=".6"/>
+  <text x="87" y="119" fill="#cbb4de" font-family="monospace" font-size="10" letter-spacing="3">CONEXÕES / IMPACTO / FUTURO</text>
+  <text x="312" y="745" fill="#cbb4de" font-family="monospace" font-size="10" letter-spacing="4">BRASÍLIA</text>
 </svg>
