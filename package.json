@@ -2,6 +2,9 @@
   "name": "cockpit-store-360",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "imports": {
     "#/*": "./src/*"
   },
