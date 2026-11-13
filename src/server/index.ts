@@ -1,19 +1,9 @@
 import express from 'express'
 import path from 'node:path'
-import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } from './db'
+import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } from './db.ts'
+import { normalizeOrderId } from '../services/storeService.ts'
 
 const NOT_FOUND_MESSAGE = 'Pedido não localizado neste ambiente de demonstração.'
-
-/** Normalize a path order id: decode, strip leading '#', trim, uppercase. */
-function normalizeId(raw: string): string {
-  let value = raw
-  try {
-    value = decodeURIComponent(raw)
-  } catch {
-    value = raw
-  }
-  return value.replace(/^#/, '').trim().toUpperCase()
-}
 
 export function createApiRouter() {
   const router = express.Router()
@@ -30,7 +20,7 @@ export function createApiRouter() {
   // GET /api/orders/:id
   router.get('/orders/:id', (req, res) => {
     try {
-      const order = getOrderWithEvents(normalizeId(req.params.id))
+      const order = getOrderWithEvents(normalizeOrderId(req.params.id))
       if (!order) {
         return res.status(404).json({ error: NOT_FOUND_MESSAGE })
       }
@@ -43,7 +33,7 @@ export function createApiRouter() {
   // POST /api/orders/:id/advance
   router.post('/orders/:id/advance', (req, res) => {
     try {
-      const order = advanceOrderStep(normalizeId(req.params.id))
+      const order = advanceOrderStep(normalizeOrderId(req.params.id))
       if (!order) {
         return res.status(404).json({ error: NOT_FOUND_MESSAGE })
       }
@@ -65,6 +55,17 @@ export function createApiRouter() {
     } catch (err: any) {
       res.status(500).json({ error: err.message })
     }
+  })
+
+  router.use((_req, res) => {
+    res.status(404).json({ error: 'Endpoint não encontrado' })
+  })
+  router.use((err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (err instanceof URIError) {
+      res.status(400).json({ error: 'Número do pedido inválido.' })
+      return
+    }
+    next(err)
   })
 
   return router

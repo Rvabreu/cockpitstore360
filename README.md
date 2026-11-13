@@ -7,12 +7,15 @@ for pre-sales and training — not an official product.
 
 ## Scripts
 
+Use Node.js 24 or newer: the production server loads the API TypeScript modules
+with Node's built-in type stripping (no separate backend compilation).
+
 ```bash
 npm install            # install deps (builds the better-sqlite3 native binding)
 npm run generate-routes # tsr generate -> src/routeTree.gen.ts
 npm run dev            # Vite dev server on http://localhost:5000
 npm run build          # production build (dist/)
-npm start              # Express production server (serves dist/client + /api)
+npm start              # Express production server (dist/client assets + TanStack SSR + /api)
 npm test               # vitest run
 ```
 
