@@ -1,6 +1,7 @@
 import type { Plugin } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { getAllProducts, getOrderWithEvents, advanceOrderStep, seedDatabase } from './db'
+import { normalizeOrderId } from '../services/storeService'
 
 const NOT_FOUND_MESSAGE = 'Pedido não localizado neste ambiente de demonstração.'
 
@@ -8,17 +9,6 @@ function sendJson(res: ServerResponse, status: number, data: any) {
   res.statusCode = status
   res.setHeader('Content-Type', 'application/json')
   res.end(JSON.stringify(data))
-}
-
-/** Normalize a path order id: decode, strip leading '#', trim, uppercase. */
-function normalizeId(raw: string): string {
-  let value = raw
-  try {
-    value = decodeURIComponent(raw)
-  } catch {
-    value = raw
-  }
-  return value.replace(/^#/, '').trim().toUpperCase()
 }
 
 export function storeApiPlugin(): Plugin {
@@ -40,7 +30,7 @@ export function storeApiPlugin(): Plugin {
       // POST /api/orders/:id/advance (match before the bare :id route)
       const advanceMatch = pathname.match(/^\/api\/orders\/([^\/]+)\/advance$/)
       if (advanceMatch && method === 'POST') {
-        const id = normalizeId(advanceMatch[1])
+        const id = normalizeOrderId(decodeURIComponent(advanceMatch[1]))
         const order = advanceOrderStep(id)
         if (!order) {
           return sendJson(res, 404, { error: NOT_FOUND_MESSAGE })
@@ -51,7 +41,7 @@ export function storeApiPlugin(): Plugin {
       // GET /api/orders/:id
       const orderMatch = pathname.match(/^\/api\/orders\/([^\/]+)$/)
       if (orderMatch && method === 'GET') {
-        const id = normalizeId(orderMatch[1])
+        const id = normalizeOrderId(decodeURIComponent(orderMatch[1]))
         const order = getOrderWithEvents(id)
         if (!order) {
           return sendJson(res, 404, { error: NOT_FOUND_MESSAGE })
@@ -72,6 +62,9 @@ export function storeApiPlugin(): Plugin {
       // If no route matched in /api
       return sendJson(res, 404, { error: 'Endpoint não encontrado' })
     } catch (err: any) {
+      if (err instanceof URIError) {
+        return sendJson(res, 400, { error: 'Número do pedido inválido.' })
+      }
       console.error('API Error:', err)
       return sendJson(res, 500, { error: err.message || 'Erro interno no servidor' })
     }
