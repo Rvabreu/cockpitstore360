@@ -1,8 +1,9 @@
 // @vitest-environment node
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { INITIAL_PRODUCTS } from '../services/storeService'
 
 // db.ts resolves its data/ dir from process.cwd() at import time and keeps a
 // singleton connection, so we point cwd at a fresh temp dir BEFORE importing it.
@@ -20,6 +21,7 @@ beforeAll(async () => {
 })
 
 afterAll(() => {
+  db.getDatabase().close()
   process.chdir(originalCwd)
   fs.rmSync(tmpDir, { recursive: true, force: true })
 })
@@ -33,7 +35,33 @@ describe('getAllProducts', () => {
       'Pulse Watch S2',
       'Wave Mini Speaker',
     ])
-    expect(products[0].image).toBe('/assets/hero_produtos.svg#orbit')
+    expect(products).toEqual(INITIAL_PRODUCTS)
+    expect(products.map((p) => p.image)).toEqual([
+      '/assets/hero_produtos.svg#orbit',
+      '/assets/hero_produtos.svg#pulse',
+      '/assets/hero_produtos.svg#wave',
+    ])
+    for (const product of products) {
+      expect(fs.existsSync(path.join(originalCwd, 'public', product.image.split('#')[0]))).toBe(true)
+    }
+  })
+
+  it('preserves existing product images and orders when reopening SQLite', async () => {
+    const connection = db.getDatabase()
+    connection.prepare('UPDATE products SET image = ? WHERE id = ?')
+      .run('/assets/hero_produtos.svg#wave', 'prod-orbit')
+    connection.prepare(`
+      INSERT INTO orders
+      SELECT ?, product_id, product_name, variant, quantity, total, placed_at, current_step
+      FROM orders WHERE id = ?
+    `).run('CS-EXISTING', 'CS-2048')
+    const order = db.advanceOrderStep('CS-2048')
+    connection.close()
+    vi.resetModules()
+    db = await import('./db')
+    expect(db.getAllProducts()[0].image).toBe('/assets/hero_produtos.svg#wave')
+    expect(db.getOrderWithEvents('CS-2048')).toEqual(order)
+    expect(db.getOrderWithEvents('CS-EXISTING')).not.toBeNull()
   })
 })
 
@@ -82,6 +110,9 @@ describe('seedDatabase', () => {
     db.seedDatabase()
     const order = db.getOrderWithEvents('CS-2048')
     expect(order!.currentStep).toBe(1)
-    expect(db.getAllProducts()).toHaveLength(3)
+    expect(db.getAllProducts()).toEqual(INITIAL_PRODUCTS)
+    for (const product of db.getAllProducts()) {
+      expect(fs.existsSync(path.join(originalCwd, 'public', product.image.split('#')[0]))).toBe(true)
+    }
   })
 })
