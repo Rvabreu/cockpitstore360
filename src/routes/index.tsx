@@ -1,8 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useStore } from '../context/useStore'
 import ProductCard from '../components/ProductCard'
 import OrderTimeline from '../components/OrderTimeline'
+import OrderDetails from '../components/OrderDetails'
 
 export const Route = createFileRoute('/')({
   component: StorefrontPage,
@@ -27,6 +28,8 @@ function StorefrontPage() {
   const [searchValue, setSearchValue] = useState('CS-2048')
   const [searchMsg, setSearchMsg] = useState('Ambiente demonstrativo com dados fictícios.')
   const [searchOk, setSearchOk] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const detailsAction = useRef<HTMLButtonElement>(null)
 
   const isLastStep = order.currentStep >= order.events.length - 1
   const statusBadge = mode === 'before' ? 'Pedido confirmado' : order.statusLabel
@@ -129,7 +132,7 @@ function StorefrontPage() {
               <div className="text-[#ff916c] font-extrabold tracking-[2.6px] uppercase text-[11px]">
                 NOSSA HISTÓRIA DE TRANSFORMAÇÃO
               </div>
-              <h2 className="text-[35px] tracking-[-1.5px] my-[9px]">
+              <h2 className="text-[35px] tracking-[-1.5px] my-[9px] [overflow-wrap:anywhere]">
                 Da dúvida ao <span className="text-[#ff9c7a]">acompanhamento do pedido.</span>
               </h2>
               <p className="text-[#abaeb6] text-[14px] leading-[1.6] m-0 max-w-[670px]">
@@ -162,7 +165,17 @@ function StorefrontPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 min-[851px]:grid-cols-[1.14fr_.86fr] gap-[19px] mt-[25px]">
+          <div className="mt-5">
+            <h3 className="text-[20px] my-2">Meus pedidos · demonstração</h3>
+            <button ref={detailsAction} type="button" onClick={() => setDetailsOpen(true)} aria-expanded={detailsOpen} className="px-4 py-3 rounded-[12px] border border-[#ff633b] bg-[#ff633b] text-[#160c08] font-bold text-[13px] max-w-full">
+              Ver detalhes do pedido demonstrativo
+            </button>
+          </div>
+
+          {detailsOpen ? <OrderDetails onBack={() => {
+            setDetailsOpen(false)
+            detailsAction.current?.focus()
+          }} /> : <div className="grid grid-cols-1 min-[851px]:grid-cols-[1.14fr_.86fr] gap-[19px] mt-[25px]">
             {/* Order card */}
             <div className="bg-[#131519] border border-[#2b2d33] rounded-[22px] p-[29px]">
               <div className="flex justify-between items-start gap-[15px] pb-5 border-b border-[#34363a]">
@@ -306,7 +319,7 @@ function StorefrontPage() {
                 </p>
               </div>
             </aside>
-          </div>
+          </div>}
         </div>
       </section>
 
