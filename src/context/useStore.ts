@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { OrderWithEvents, Product } from '../types/store'
 import {
   SEED_ORDER_ID,
@@ -17,6 +17,9 @@ export function useStore() {
   const [products, setProducts] = useState<Product[]>(() => getStoredProducts())
   const [order, setOrder] = useState<OrderWithEvents>(() => getStoredOrder())
   const [isLoaded, setIsLoaded] = useState(false)
+  const [isAdvancing, setIsAdvancing] = useState(false)
+  const [advanceError, setAdvanceError] = useState('')
+  const advancing = useRef(false)
 
   const loadOrder = useCallback(async () => {
     const refreshed = await loadOrderApi(SEED_ORDER_ID)
@@ -33,9 +36,21 @@ export function useStore() {
   }, [])
 
   const advanceOrder = useCallback(async (id: string): Promise<OrderWithEvents | null> => {
-    const updated = await advanceOrderApi(id)
-    setOrder(updated)
-    return updated
+    if (advancing.current) return null
+    advancing.current = true
+    setIsAdvancing(true)
+    setAdvanceError('')
+    try {
+      const updated = await advanceOrderApi(id)
+      setOrder(updated)
+      return updated
+    } catch {
+      setAdvanceError('Não foi possível atualizar o pedido. Tente novamente.')
+      return null
+    } finally {
+      advancing.current = false
+      setIsAdvancing(false)
+    }
   }, [])
 
   // Validation-only: returns { ok, message }, never swaps the displayed order.
@@ -45,6 +60,8 @@ export function useStore() {
     products,
     order,
     isLoaded,
+    isAdvancing,
+    advanceError,
     loadOrder,
     advanceOrder,
     getOrder,

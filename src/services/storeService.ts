@@ -53,8 +53,7 @@ export const SEED_ORDER_EVENTS: Array<{ title: string; detail: string }> = [
 
 /**
  * Build the derived OrderWithEvents shape (status + displayDetail + statusLabel)
- * from the raw order fields. Shared by the seed constant and the offline advance
- * fallback so the derivation never drifts from the server.
+ * from the raw order fields for the synchronously rendered seed constant.
  */
 export function buildOrderWithEvents(params: {
   id: string
@@ -170,15 +169,9 @@ export function saveOrder(order: OrderWithEvents): void {
   }
 }
 
-/** Normalize a user/path order id: decode, strip leading '#', trim, uppercase. */
+/** Normalize an order id after transport decoding (which belongs to the server). */
 export function normalizeOrderId(raw: string): string {
-  let value = raw
-  try {
-    value = decodeURIComponent(raw)
-  } catch {
-    value = raw
-  }
-  return value.replace(/^#/, '').trim().toUpperCase()
+  return raw.trim().replace(/^#/, '').trim().toUpperCase()
 }
 
 /* ==================== Backend REST API Calls (SQLite Persisted) ==================== */
@@ -210,31 +203,11 @@ export async function loadOrderApi(id: string): Promise<OrderWithEvents> {
 }
 
 export async function advanceOrderApi(id: string): Promise<OrderWithEvents> {
-  try {
-    const res = await fetch(`/api/orders/${encodeURIComponent(id)}/advance`, { method: 'POST' })
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`)
-    const data = (await res.json()) as OrderWithEvents
-    saveOrder(data)
-    return data
-  } catch (e) {
-    console.warn(`API advance ${id} failed, computing next step locally:`, e)
-    const current = getStoredOrder()
-    const eventCount = current.events.length
-    const nextStep = current.currentStep >= eventCount - 1 ? 0 : current.currentStep + 1
-    const next = buildOrderWithEvents({
-      id: current.id,
-      productId: current.productId,
-      productName: current.productName,
-      variant: current.variant,
-      quantity: current.quantity,
-      total: current.total,
-      placedAt: current.placedAt,
-      currentStep: nextStep,
-      events: current.events.map((ev) => ({ title: ev.title, detail: ev.detail })),
-    })
-    saveOrder(next)
-    return next
-  }
+  const res = await fetch(`/api/orders/${encodeURIComponent(normalizeOrderId(id))}/advance`, { method: 'POST' })
+  if (!res.ok) throw new Error(`HTTP error ${res.status}`)
+  const data = (await res.json()) as OrderWithEvents
+  saveOrder(data)
+  return data
 }
 
 /**
