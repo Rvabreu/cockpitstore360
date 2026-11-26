@@ -27,4 +27,21 @@ describe('ProductCard', () => {
     expect(screen.getByText('Som premium para qualquer jornada.')).toBeInTheDocument()
     expect(screen.getByText('Áudio imersivo')).toBeInTheDocument()
   })
+
+  it('keeps the original home crop and price without campaign labels by default', () => {
+    render(<ProductCard product={product} />)
+    expect(screen.getByRole('img', { name: product.name })).toHaveStyle({ backgroundSize: '250%', backgroundPosition: '93% 17%' })
+    expect(screen.queryByText('Valor demonstrativo')).not.toBeInTheDocument()
+  })
+
+  it('isolates each local SVG illustration only in the campaign variant', () => {
+    for (const [key, viewBox] of [['orbit', '1080 0 440 340'], ['pulse', '710 670 400 400'], ['wave', '1290 780 310 400']]) {
+      const { unmount } = render(<ProductCard product={{ ...product, image: `/assets/hero_produtos.svg#${key}` }} variant="campaign" />)
+      const illustration = screen.getByRole('img', { name: `Ilustração de ${product.name}` })
+      expect(illustration).toHaveAttribute('viewBox', viewBox)
+      expect(illustration.querySelector('image')).toHaveAttribute('href', '/assets/hero_produtos.svg')
+      expect(screen.getByText('Valor demonstrativo')).toBeInTheDocument()
+      unmount()
+    }
+  })
 })
